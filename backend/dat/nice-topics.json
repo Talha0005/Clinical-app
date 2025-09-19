@@ -1,0 +1,1826 @@
+{
+  "Abdominal aortic aneurysm screening": {
+    "url": "https://cks.nice.org.uk/topics/abdominal-aortic-aneurysm-screening/",
+    "summary": ""
+  },
+  "Abdominal pain - acute": {
+    "url": "https://cks.nice.org.uk/topics/abdominal-pain-acute/",
+    "summary": ""
+  },
+  "Abortion": {
+    "url": "https://cks.nice.org.uk/topics/abortion/",
+    "summary": ""
+  },
+  "Achilles tendinopathy": {
+    "url": "https://cks.nice.org.uk/topics/achilles-tendinopathy/",
+    "summary": ""
+  },
+  "Acne vulgaris": {
+    "url": "https://cks.nice.org.uk/topics/acne-vulgaris/",
+    "summary": ""
+  },
+  "Acute childhood limp": {
+    "url": "https://cks.nice.org.uk/topics/acute-childhood-limp/",
+    "summary": ""
+  },
+  "Acute kidney injury": {
+    "url": "https://cks.nice.org.uk/topics/acute-kidney-injury/",
+    "summary": ""
+  },
+  "Addison's disease": {
+    "url": "https://cks.nice.org.uk/topics/addisons-disease/",
+    "summary": ""
+  },
+  "Adult malnutrition": {
+    "url": "https://cks.nice.org.uk/topics/adult-malnutrition/",
+    "summary": ""
+  },
+  "Adverse drug reactions": {
+    "url": "https://cks.nice.org.uk/topics/adverse-drug-reactions/",
+    "summary": ""
+  },
+  "Age-related macular degeneration": {
+    "url": "https://cks.nice.org.uk/topics/macular-degeneration-age-related/",
+    "summary": ""
+  },
+  "AIDS and HIV infection": {
+    "url": "https://cks.nice.org.uk/topics/hiv-infection-aids/",
+    "summary": ""
+  },
+  "Alcohol - problem drinking": {
+    "url": "https://cks.nice.org.uk/topics/alcohol-problem-drinking/",
+    "summary": ""
+  },
+  "Allergic rhinitis": {
+    "url": "https://cks.nice.org.uk/topics/allergic-rhinitis/",
+    "summary": ""
+  },
+  "Alopecia areata": {
+    "url": "https://cks.nice.org.uk/topics/alopecia-areata/",
+    "summary": ""
+  },
+  "Amenorrhoea": {
+    "url": "https://cks.nice.org.uk/topics/amenorrhoea/",
+    "summary": ""
+  },
+  "Anaemia - B12 and folate deficiency": {
+    "url": "https://cks.nice.org.uk/topics/anaemia-b12-folate-deficiency/",
+    "summary": ""
+  },
+  "Anaemia - iron deficiency": {
+    "url": "https://cks.nice.org.uk/topics/anaemia-iron-deficiency/",
+    "summary": ""
+  },
+  "Anal fissure": {
+    "url": "https://cks.nice.org.uk/topics/anal-fissure/",
+    "summary": ""
+  },
+  "Analgesia - mild-to-moderate pain": {
+    "url": "https://cks.nice.org.uk/topics/analgesia-mild-to-moderate-pain/",
+    "summary": ""
+  },
+  "Angina": {
+    "url": "https://cks.nice.org.uk/topics/angina/",
+    "summary": ""
+  },
+  "Angio-oedema and anaphylaxis": {
+    "url": "https://cks.nice.org.uk/topics/angio-oedema-anaphylaxis/",
+    "summary": ""
+  },
+  "Animal and human bites": {
+    "url": "https://cks.nice.org.uk/topics/bites-human-animal/",
+    "summary": ""
+  },
+  "Antenatal and postnatal depression": {
+    "url": "https://cks.nice.org.uk/topics/depression-antenatal-postnatal/",
+    "summary": ""
+  },
+  "Antenatal care - uncomplicated pregnancy": {
+    "url": "https://cks.nice.org.uk/topics/antenatal-care-uncomplicated-pregnancy/",
+    "summary": ""
+  },
+  "Anticoagulation - oral": {
+    "url": "https://cks.nice.org.uk/topics/anticoagulation-oral/",
+    "summary": ""
+  },
+  "Antiplatelet treatment": {
+    "url": "https://cks.nice.org.uk/topics/antiplatelet-treatment/",
+    "summary": ""
+  },
+  "Aphthous ulcer": {
+    "url": "https://cks.nice.org.uk/topics/aphthous-ulcer/",
+    "summary": ""
+  },
+  "Appendicitis": {
+    "url": "https://cks.nice.org.uk/topics/appendicitis/",
+    "summary": ""
+  },
+  "Asthma": {
+    "url": "https://cks.nice.org.uk/topics/asthma/",
+    "summary": ""
+  },
+  "Atrial fibrillation": {
+    "url": "https://cks.nice.org.uk/topics/atrial-fibrillation/",
+    "summary": ""
+  },
+  "Attention deficit hyperactivity disorder": {
+    "url": "https://cks.nice.org.uk/topics/attention-deficit-hyperactivity-disorder/",
+    "summary": ""
+  },
+  "Autism in adults": {
+    "url": "https://cks.nice.org.uk/topics/autism-in-adults/",
+    "summary": ""
+  },
+  "Autism in children": {
+    "url": "https://cks.nice.org.uk/topics/autism-in-children/",
+    "summary": ""
+  },
+  "Axial spondyloarthritis (including ankylosing spondylitis)": {
+    "url": "https://cks.nice.org.uk/topics/axial-spondyloarthritis-including-ankylosing-spondylitis/",
+    "summary": ""
+  },
+  "B12 and folate deficiency anaemia": {
+    "url": "https://cks.nice.org.uk/topics/anaemia-b12-folate-deficiency/",
+    "summary": ""
+  },
+  "Back pain - low (without radiculopathy)": {
+    "url": "https://cks.nice.org.uk/topics/back-pain-low-without-radiculopathy/",
+    "summary": ""
+  },
+  "Bacterial meningitis and meningococcal disease": {
+    "url": "https://cks.nice.org.uk/topics/meningitis-bacterial-meningitis-meningococcal-disease/",
+    "summary": ""
+  },
+  "Bacterial vaginosis": {
+    "url": "https://cks.nice.org.uk/topics/bacterial-vaginosis/",
+    "summary": ""
+  },
+  "Baker's cyst": {
+    "url": "https://cks.nice.org.uk/topics/bakers-cyst/",
+    "summary": ""
+  },
+  "Balanitis": {
+    "url": "https://cks.nice.org.uk/topics/balanitis/",
+    "summary": ""
+  },
+  "Bedwetting (enuresis)": {
+    "url": "https://cks.nice.org.uk/topics/bedwetting-enuresis/",
+    "summary": ""
+  },
+  "Bell's palsy": {
+    "url": "https://cks.nice.org.uk/topics/bells-palsy/",
+    "summary": ""
+  },
+  "Benign paroxysmal positional vertigo": {
+    "url": "https://cks.nice.org.uk/topics/benign-paroxysmal-positional-vertigo/",
+    "summary": ""
+  },
+  "Benzodiazepine and z-drug withdrawal": {
+    "url": "https://cks.nice.org.uk/topics/benzodiazepine-z-drug-withdrawal/",
+    "summary": ""
+  },
+  "Bipolar disorder": {
+    "url": "https://cks.nice.org.uk/topics/bipolar-disorder/",
+    "summary": ""
+  },
+  "Bites - human and animal": {
+    "url": "https://cks.nice.org.uk/topics/bites-human-animal/",
+    "summary": ""
+  },
+  "Bites and stings - insect": {
+    "url": "https://cks.nice.org.uk/topics/insect-bites-stings/",
+    "summary": ""
+  },
+  "Blackouts and syncope": {
+    "url": "https://cks.nice.org.uk/topics/blackouts-syncope/",
+    "summary": ""
+  },
+  "Blepharitis": {
+    "url": "https://cks.nice.org.uk/topics/blepharitis/",
+    "summary": ""
+  },
+  "Boils, carbuncles, and staphylococcal carriage": {
+    "url": "https://cks.nice.org.uk/topics/boils-carbuncles-staphylococcal-carriage/",
+    "summary": ""
+  },
+  "Bone and soft tissue sarcoma - recognition and referral": {
+    "url": "https://cks.nice.org.uk/topics/bone-soft-tissue-sarcoma-recognition-referral/",
+    "summary": ""
+  },
+  "Bowel screening": {
+    "url": "https://cks.nice.org.uk/topics/bowel-screening/",
+    "summary": ""
+  },
+  "Brain and central nervous system cancers - recognition and referral": {
+    "url": "https://cks.nice.org.uk/topics/brain-central-nervous-system-cancers-recognition-referral/",
+    "summary": ""
+  },
+  "Breast abscess and mastitis": {
+    "url": "https://cks.nice.org.uk/topics/mastitis-breast-abscess/",
+    "summary": ""
+  },
+  "Breast cancer - managing FH": {
+    "url": "https://cks.nice.org.uk/topics/breast-cancer-managing-fh/",
+    "summary": ""
+  },
+  "Breast cancer - recognition and referral": {
+    "url": "https://cks.nice.org.uk/topics/breast-cancer-recognition-referral/",
+    "summary": ""
+  },
+  "Breast pain - cyclical": {
+    "url": "https://cks.nice.org.uk/topics/breast-pain-cyclical/",
+    "summary": ""
+  },
+  "Breast screening": {
+    "url": "https://cks.nice.org.uk/topics/breast-screening/",
+    "summary": ""
+  },
+  "Breastfeeding problems": {
+    "url": "https://cks.nice.org.uk/topics/breastfeeding-problems/",
+    "summary": ""
+  },
+  "Breathlessness": {
+    "url": "https://cks.nice.org.uk/topics/breathlessness/",
+    "summary": ""
+  },
+  "Bronchiectasis": {
+    "url": "https://cks.nice.org.uk/topics/bronchiectasis/",
+    "summary": ""
+  },
+  "Bruising": {
+    "url": "https://cks.nice.org.uk/topics/bruising/",
+    "summary": ""
+  },
+  "Bunions": {
+    "url": "https://cks.nice.org.uk/topics/bunions/",
+    "summary": ""
+  },
+  "Burns and scalds": {
+    "url": "https://cks.nice.org.uk/topics/burns-scalds/",
+    "summary": ""
+  },
+  "Bursitis - pre-patellar": {
+    "url": "https://cks.nice.org.uk/topics/pre-patellar-bursitis/",
+    "summary": ""
+  },
+  "Candida - female genital": {
+    "url": "https://cks.nice.org.uk/topics/candida-female-genital/",
+    "summary": ""
+  },
+  "Candida - oral": {
+    "url": "https://cks.nice.org.uk/topics/candida-oral/",
+    "summary": ""
+  },
+  "Candida - skin": {
+    "url": "https://cks.nice.org.uk/topics/candida-skin/",
+    "summary": ""
+  },
+  "Carbon monoxide poisoning": {
+    "url": "https://cks.nice.org.uk/topics/carbon-monoxide-poisoning/",
+    "summary": ""
+  },
+  "Carbuncles, boils and staphylococcal carriage": {
+    "url": "https://cks.nice.org.uk/topics/boils-carbuncles-staphylococcal-carriage/",
+    "summary": ""
+  },
+  "Cardiac arrest - out of hospital care": {
+    "url": "https://cks.nice.org.uk/topics/cardiac-arrest-out-of-hospital-care/",
+    "summary": ""
+  },
+  "Carpal tunnel syndrome": {
+    "url": "https://cks.nice.org.uk/topics/carpal-tunnel-syndrome/",
+    "summary": ""
+  },
+  "Cataracts": {
+    "url": "https://cks.nice.org.uk/topics/cataracts/",
+    "summary": ""
+  },
+  "Cellulitis - acute": {
+    "url": "https://cks.nice.org.uk/topics/cellulitis-acute/",
+    "summary": ""
+  },
+  "Central nervous system and brain cancers - recognition and referral": {
+    "url": "https://cks.nice.org.uk/topics/brain-central-nervous-system-cancers-recognition-referral/",
+    "summary": ""
+  },
+  "Cerebral palsy": {
+    "url": "https://cks.nice.org.uk/topics/cerebral-palsy/",
+    "summary": ""
+  },
+  "Cervical cancer and HPV": {
+    "url": "https://cks.nice.org.uk/topics/cervical-cancer-hpv/",
+    "summary": ""
+  },
+  "Cervical radiculopathy - neck pain": {
+    "url": "https://cks.nice.org.uk/topics/neck-pain-cervical-radiculopathy/",
+    "summary": ""
+  },
+  "Cervical screening": {
+    "url": "https://cks.nice.org.uk/topics/cervical-screening/",
+    "summary": ""
+  },
+  "Chalazion (meibomian cyst)": {
+    "url": "https://cks.nice.org.uk/topics/meibomian-cyst-chalazion/",
+    "summary": ""
+  },
+  "Chest infections - adult": {
+    "url": "https://cks.nice.org.uk/topics/chest-infections-adult/",
+    "summary": ""
+  },
+  "Chest pain": {
+    "url": "https://cks.nice.org.uk/topics/chest-pain/",
+    "summary": ""
+  },
+  "Chickenpox": {
+    "url": "https://cks.nice.org.uk/topics/chickenpox/",
+    "summary": ""
+  },
+  "Chilblains": {
+    "url": "https://cks.nice.org.uk/topics/chilblains/",
+    "summary": ""
+  },
+  "Child maltreatment - recognition and management": {
+    "url": "https://cks.nice.org.uk/topics/child-maltreatment-recognition-management/",
+    "summary": ""
+  },
+  "Childhood cancers - recognition and referral": {
+    "url": "https://cks.nice.org.uk/topics/childhood-cancers-recognition-referral/",
+    "summary": ""
+  },
+  "Childhood limp - acute": {
+    "url": "https://cks.nice.org.uk/topics/acute-childhood-limp/",
+    "summary": ""
+  },
+  "Chlamydia - uncomplicated genital": {
+    "url": "https://cks.nice.org.uk/topics/chlamydia-uncomplicated-genital/",
+    "summary": ""
+  },
+  "Cholecystitis - acute": {
+    "url": "https://cks.nice.org.uk/topics/cholecystitis-acute/",
+    "summary": ""
+  },
+  "Cholesteatoma": {
+    "url": "https://cks.nice.org.uk/topics/cholesteatoma/",
+    "summary": ""
+  },
+  "Chronic kidney disease": {
+    "url": "https://cks.nice.org.uk/topics/chronic-kidney-disease/",
+    "summary": ""
+  },
+  "Chronic obstructive pulmonary disease": {
+    "url": "https://cks.nice.org.uk/topics/chronic-obstructive-pulmonary-disease/",
+    "summary": ""
+  },
+  "Chronic pain": {
+    "url": "https://cks.nice.org.uk/topics/chronic-pain/",
+    "summary": ""
+  },
+  "Cirrhosis": {
+    "url": "https://cks.nice.org.uk/topics/cirrhosis/",
+    "summary": ""
+  },
+  "Coeliac disease": {
+    "url": "https://cks.nice.org.uk/topics/coeliac-disease/",
+    "summary": ""
+  },
+  "Colic - infantile": {
+    "url": "https://cks.nice.org.uk/topics/colic-infantile/",
+    "summary": ""
+  },
+  "Colic - renal or ureteric (acute)": {
+    "url": "https://cks.nice.org.uk/topics/renal-or-ureteric-colic-acute/",
+    "summary": ""
+  },
+  "Common cold": {
+    "url": "https://cks.nice.org.uk/topics/common-cold/",
+    "summary": ""
+  },
+  "Common musculoskeletal presentations in children": {
+    "url": "https://cks.nice.org.uk/topics/common-musculoskeletal-presentations-in-children/",
+    "summary": ""
+  },
+  "Compression stockings": {
+    "url": "https://cks.nice.org.uk/topics/compression-stockings/",
+    "summary": ""
+  },
+  "Conduct disorders in children and young people": {
+    "url": "https://cks.nice.org.uk/topics/conduct-disorders-in-children-young-people/",
+    "summary": ""
+  },
+  "Conjunctivitis - allergic": {
+    "url": "https://cks.nice.org.uk/topics/conjunctivitis-allergic/",
+    "summary": ""
+  },
+  "Conjunctivitis - infective": {
+    "url": "https://cks.nice.org.uk/topics/conjunctivitis-infective/",
+    "summary": ""
+  },
+  "Constipation": {
+    "url": "https://cks.nice.org.uk/topics/constipation/",
+    "summary": ""
+  },
+  "Constipation in children": {
+    "url": "https://cks.nice.org.uk/topics/constipation-in-children/",
+    "summary": ""
+  },
+  "Contraception - assessment": {
+    "url": "https://cks.nice.org.uk/topics/contraception-assessment/",
+    "summary": ""
+  },
+  "Contraception - barrier methods and spermicides": {
+    "url": "https://cks.nice.org.uk/topics/contraception-barrier-methods-spermicides/",
+    "summary": ""
+  },
+  "Contraception - combined hormonal methods": {
+    "url": "https://cks.nice.org.uk/topics/contraception-combined-hormonal-methods/",
+    "summary": ""
+  },
+  "Contraception - emergency": {
+    "url": "https://cks.nice.org.uk/topics/contraception-emergency/",
+    "summary": ""
+  },
+  "Contraception - IUC": {
+    "url": "https://cks.nice.org.uk/topics/contraception-iuc/",
+    "summary": ""
+  },
+  "Contraception - natural family planning": {
+    "url": "https://cks.nice.org.uk/topics/contraception-natural-family-planning/",
+    "summary": ""
+  },
+  "Contraception - progestogen-only methods": {
+    "url": "https://cks.nice.org.uk/topics/contraception-progestogen-only-methods/",
+    "summary": ""
+  },
+  "Contraception - sterilization": {
+    "url": "https://cks.nice.org.uk/topics/contraception-sterilization/",
+    "summary": ""
+  },
+  "Corneal superficial injury": {
+    "url": "https://cks.nice.org.uk/topics/corneal-superficial-injury/",
+    "summary": ""
+  },
+  "Coronavirus - COVID-19": {
+    "url": "https://cks.nice.org.uk/topics/coronavirus-covid-19/",
+    "summary": ""
+  },
+  "Corticosteroids - inhaled": {
+    "url": "https://cks.nice.org.uk/topics/corticosteroids-inhaled/",
+    "summary": ""
+  },
+  "Corticosteroids - oral": {
+    "url": "https://cks.nice.org.uk/topics/corticosteroids-oral/",
+    "summary": ""
+  },
+  "Corticosteroids - topical (skin), nose, and eyes": {
+    "url": "https://cks.nice.org.uk/topics/corticosteroids-topical-skin-nose-eyes/",
+    "summary": ""
+  },
+  "Cough": {
+    "url": "https://cks.nice.org.uk/topics/cough/",
+    "summary": ""
+  },
+  "Cough - acute with chest signs in children": {
+    "url": "https://cks.nice.org.uk/topics/cough-acute-with-chest-signs-in-children/",
+    "summary": ""
+  },
+  "Cow's milk allergy in children": {
+    "url": "https://cks.nice.org.uk/topics/cows-milk-allergy-in-children/",
+    "summary": ""
+  },
+  "Crohn's disease": {
+    "url": "https://cks.nice.org.uk/topics/crohns-disease/",
+    "summary": ""
+  },
+  "Croup": {
+    "url": "https://cks.nice.org.uk/topics/croup/",
+    "summary": ""
+  },
+  "Cushing's syndrome": {
+    "url": "https://cks.nice.org.uk/topics/cushings-syndrome/",
+    "summary": ""
+  },
+  "CVD prevention - lipid modification": {
+    "url": "https://cks.nice.org.uk/topics/lipid-modification-cvd-prevention/",
+    "summary": ""
+  },
+  "CVD risk assessment and management": {
+    "url": "https://cks.nice.org.uk/topics/cvd-risk-assessment-management/",
+    "summary": ""
+  },
+  "Deep vein thrombosis": {
+    "url": "https://cks.nice.org.uk/topics/deep-vein-thrombosis/",
+    "summary": ""
+  },
+  "Delirium": {
+    "url": "https://cks.nice.org.uk/topics/delirium/",
+    "summary": ""
+  },
+  "Dementia": {
+    "url": "https://cks.nice.org.uk/topics/dementia/",
+    "summary": ""
+  },
+  "Dental abscess": {
+    "url": "https://cks.nice.org.uk/topics/dental-abscess/",
+    "summary": ""
+  },
+  "Depression": {
+    "url": "https://cks.nice.org.uk/topics/depression/",
+    "summary": ""
+  },
+  "Depression - antenatal and postnatal": {
+    "url": "https://cks.nice.org.uk/topics/depression-antenatal-postnatal/",
+    "summary": ""
+  },
+  "Depression in children": {
+    "url": "https://cks.nice.org.uk/topics/depression-in-children/",
+    "summary": ""
+  },
+  "Dermatitis - contact": {
+    "url": "https://cks.nice.org.uk/topics/dermatitis-contact/",
+    "summary": ""
+  },
+  "Diabetes - type 1": {
+    "url": "https://cks.nice.org.uk/topics/diabetes-type-1/",
+    "summary": ""
+  },
+  "Diabetes - type 2": {
+    "url": "https://cks.nice.org.uk/topics/diabetes-type-2/",
+    "summary": ""
+  },
+  "Diabetes type 1 - insulin therapy": {
+    "url": "https://cks.nice.org.uk/topics/insulin-therapy-in-type-1-diabetes/",
+    "summary": ""
+  },
+  "Diabetes type 2 - insulin therapy": {
+    "url": "https://cks.nice.org.uk/topics/insulin-therapy-in-type-2-diabetes/",
+    "summary": ""
+  },
+  "Diarrhoea - adult's assessment": {
+    "url": "https://cks.nice.org.uk/topics/diarrhoea-adults-assessment/",
+    "summary": ""
+  },
+  "Diarrhoea - antibiotic associated": {
+    "url": "https://cks.nice.org.uk/topics/diarrhoea-antibiotic-associated/",
+    "summary": ""
+  },
+  "Diarrhoea - prevention and advice for travellers": {
+    "url": "https://cks.nice.org.uk/topics/diarrhoea-prevention-advice-for-travellers/",
+    "summary": ""
+  },
+  "Diverticular disease": {
+    "url": "https://cks.nice.org.uk/topics/diverticular-disease/",
+    "summary": ""
+  },
+  "DMARDs": {
+    "url": "https://cks.nice.org.uk/topics/dmards/",
+    "summary": ""
+  },
+  "Domestic abuse": {
+    "url": "https://cks.nice.org.uk/topics/domestic-abuse/",
+    "summary": ""
+  },
+  "Drugs - adverse reactions": {
+    "url": "https://cks.nice.org.uk/topics/adverse-drug-reactions/",
+    "summary": ""
+  },
+  "Dry eye disease": {
+    "url": "https://cks.nice.org.uk/topics/dry-eye-disease/",
+    "summary": ""
+  },
+  "Dupuytren's disease": {
+    "url": "https://cks.nice.org.uk/topics/dupuytrens-disease/",
+    "summary": ""
+  },
+  "DVT prevention for travellers": {
+    "url": "https://cks.nice.org.uk/topics/dvt-prevention-for-travellers/",
+    "summary": ""
+  },
+  "Dysmenorrhoea": {
+    "url": "https://cks.nice.org.uk/topics/dysmenorrhoea/",
+    "summary": ""
+  },
+  "Dyspepsia - pregnancy-associated": {
+    "url": "https://cks.nice.org.uk/topics/dyspepsia-pregnancy-associated/",
+    "summary": ""
+  },
+  "Dyspepsia - proven functional": {
+    "url": "https://cks.nice.org.uk/topics/dyspepsia-proven-functional/",
+    "summary": ""
+  },
+  "Dyspepsia - proven GORD": {
+    "url": "https://cks.nice.org.uk/topics/dyspepsia-proven-gord/",
+    "summary": ""
+  },
+  "Dyspepsia - proven peptic ulcer": {
+    "url": "https://cks.nice.org.uk/topics/dyspepsia-proven-peptic-ulcer/",
+    "summary": ""
+  },
+  "Dyspepsia - unidentified cause": {
+    "url": "https://cks.nice.org.uk/topics/dyspepsia-unidentified-cause/",
+    "summary": ""
+  },
+  "Earwax": {
+    "url": "https://cks.nice.org.uk/topics/earwax/",
+    "summary": ""
+  },
+  "Eating disorders": {
+    "url": "https://cks.nice.org.uk/topics/eating-disorders/",
+    "summary": ""
+  },
+  "Ectopic pregnancy": {
+    "url": "https://cks.nice.org.uk/topics/ectopic-pregnancy/",
+    "summary": ""
+  },
+  "Eczema - atopic": {
+    "url": "https://cks.nice.org.uk/topics/eczema-atopic/",
+    "summary": ""
+  },
+  "End of life care in children": {
+    "url": "https://cks.nice.org.uk/topics/end-of-life-care-in-children/",
+    "summary": ""
+  },
+  "Endometriosis": {
+    "url": "https://cks.nice.org.uk/topics/endometriosis/",
+    "summary": ""
+  },
+  "Enuresis - bedwetting": {
+    "url": "https://cks.nice.org.uk/topics/bedwetting-enuresis/",
+    "summary": ""
+  },
+  "Epilepsy": {
+    "url": "https://cks.nice.org.uk/topics/epilepsy/",
+    "summary": ""
+  },
+  "Epistaxis (nosebleeds)": {
+    "url": "https://cks.nice.org.uk/topics/epistaxis-nosebleeds/",
+    "summary": ""
+  },
+  "Erectile dysfunction": {
+    "url": "https://cks.nice.org.uk/topics/erectile-dysfunction/",
+    "summary": ""
+  },
+  "Erythrocytosis/polycythaemia": {
+    "url": "https://cks.nice.org.uk/topics/polycythaemia-erythrocytosis/",
+    "summary": ""
+  },
+  "Faecal incontinence in adults": {
+    "url": "https://cks.nice.org.uk/topics/faecal-incontinence-in-adults/",
+    "summary": ""
+  },
+  "Falls - risk assessment": {
+    "url": "https://cks.nice.org.uk/topics/falls-risk-assessment/",
+    "summary": ""
+  },
+  "Faltering growth": {
+    "url": "https://cks.nice.org.uk/topics/faltering-growth/",
+    "summary": ""
+  },
+  "Febrile seizure": {
+    "url": "https://cks.nice.org.uk/topics/febrile-seizure/",
+    "summary": ""
+  },
+  "Female pattern hair loss (female androgenetic alopecia)": {
+    "url": "https://cks.nice.org.uk/topics/female-pattern-hair-loss-female-androgenetic-alopecia/",
+    "summary": ""
+  },
+  "Feverish children - management": {
+    "url": "https://cks.nice.org.uk/topics/feverish-children-management/",
+    "summary": ""
+  },
+  "Feverish children - risk assessment and management": {
+    "url": "https://cks.nice.org.uk/topics/feverish-children-risk-assessment-management/",
+    "summary": ""
+  },
+  "Fibroids": {
+    "url": "https://cks.nice.org.uk/topics/fibroids/",
+    "summary": ""
+  },
+  "Folate and B12 deficiency anaemia": {
+    "url": "https://cks.nice.org.uk/topics/anaemia-b12-folate-deficiency/",
+    "summary": ""
+  },
+  "Food allergy": {
+    "url": "https://cks.nice.org.uk/topics/food-allergy/",
+    "summary": ""
+  },
+  "Functional neurological disorder": {
+    "url": "https://cks.nice.org.uk/topics/functional-neurological-disorder/",
+    "summary": ""
+  },
+  "Fungal nail infection": {
+    "url": "https://cks.nice.org.uk/topics/fungal-nail-infection/",
+    "summary": ""
+  },
+  "Fungal skin infection - body and groin": {
+    "url": "https://cks.nice.org.uk/topics/fungal-skin-infection-body-groin/",
+    "summary": ""
+  },
+  "Fungal skin infection - foot": {
+    "url": "https://cks.nice.org.uk/topics/fungal-skin-infection-foot/",
+    "summary": ""
+  },
+  "Fungal skin infection - scalp": {
+    "url": "https://cks.nice.org.uk/topics/fungal-skin-infection-scalp/",
+    "summary": ""
+  },
+  "Gallstones": {
+    "url": "https://cks.nice.org.uk/topics/gallstones/",
+    "summary": ""
+  },
+  "Gastroenteritis": {
+    "url": "https://cks.nice.org.uk/topics/gastroenteritis/",
+    "summary": ""
+  },
+  "Gastrointestinal tract (lower) cancers - recognition and referral": {
+    "url": "https://cks.nice.org.uk/topics/gastrointestinal-tract-lower-cancers-recognition-referral/",
+    "summary": ""
+  },
+  "Gastrointestinal tract (upper) cancers - recognition and referral": {
+    "url": "https://cks.nice.org.uk/topics/gastrointestinal-tract-upper-cancers-recognition-referral/",
+    "summary": ""
+  },
+  "Generalized anxiety disorder": {
+    "url": "https://cks.nice.org.uk/topics/generalized-anxiety-disorder/",
+    "summary": ""
+  },
+  "Giant cell arteritis": {
+    "url": "https://cks.nice.org.uk/topics/giant-cell-arteritis/",
+    "summary": ""
+  },
+  "Gilbert's syndrome": {
+    "url": "https://cks.nice.org.uk/topics/gilberts-syndrome/",
+    "summary": ""
+  },
+  "Gingivitis and periodontitis": {
+    "url": "https://cks.nice.org.uk/topics/gingivitis-periodontitis/",
+    "summary": ""
+  },
+  "Glaucoma": {
+    "url": "https://cks.nice.org.uk/topics/glaucoma/",
+    "summary": ""
+  },
+  "Gonorrhoea": {
+    "url": "https://cks.nice.org.uk/topics/gonorrhoea/",
+    "summary": ""
+  },
+  "GORD in children": {
+    "url": "https://cks.nice.org.uk/topics/gord-in-children/",
+    "summary": ""
+  },
+  "Gout": {
+    "url": "https://cks.nice.org.uk/topics/gout/",
+    "summary": ""
+  },
+  "Greater trochanteric pain syndrome": {
+    "url": "https://cks.nice.org.uk/topics/greater-trochanteric-pain-syndrome/",
+    "summary": ""
+  },
+  "Gynaecological cancers - recognition and referral": {
+    "url": "https://cks.nice.org.uk/topics/gynaecological-cancers-recognition-referral/",
+    "summary": ""
+  },
+  "Haematological cancers - recognition and referral": {
+    "url": "https://cks.nice.org.uk/topics/haematological-cancers-recognition-referral/",
+    "summary": ""
+  },
+  "Haematospermia": {
+    "url": "https://cks.nice.org.uk/topics/haematospermia/",
+    "summary": ""
+  },
+  "Haemorrhoids": {
+    "url": "https://cks.nice.org.uk/topics/haemorrhoids/",
+    "summary": ""
+  },
+  "Halitosis": {
+    "url": "https://cks.nice.org.uk/topics/halitosis/",
+    "summary": ""
+  },
+  "Hand, foot, and mouth disease": {
+    "url": "https://cks.nice.org.uk/topics/hand-foot-mouth-disease/",
+    "summary": ""
+  },
+  "Head and neck cancers - recognition and referral": {
+    "url": "https://cks.nice.org.uk/topics/head-neck-cancers-recognition-referral/",
+    "summary": ""
+  },
+  "Head injury": {
+    "url": "https://cks.nice.org.uk/topics/head-injury/",
+    "summary": ""
+  },
+  "Head lice": {
+    "url": "https://cks.nice.org.uk/topics/head-lice/",
+    "summary": ""
+  },
+  "Headache - assessment": {
+    "url": "https://cks.nice.org.uk/topics/headache-assessment/",
+    "summary": ""
+  },
+  "Headache - cluster": {
+    "url": "https://cks.nice.org.uk/topics/headache-cluster/",
+    "summary": ""
+  },
+  "Headache - medication overuse": {
+    "url": "https://cks.nice.org.uk/topics/headache-medication-overuse/",
+    "summary": ""
+  },
+  "Headache - tension-type": {
+    "url": "https://cks.nice.org.uk/topics/headache-tension-type/",
+    "summary": ""
+  },
+  "Healthcare-associated infections": {
+    "url": "https://cks.nice.org.uk/topics/healthcare-associated-infections/",
+    "summary": ""
+  },
+  "Hearing loss in adults": {
+    "url": "https://cks.nice.org.uk/topics/hearing-loss-in-adults/",
+    "summary": ""
+  },
+  "Heart failure - chronic": {
+    "url": "https://cks.nice.org.uk/topics/heart-failure-chronic/",
+    "summary": ""
+  },
+  "Hepatitis A": {
+    "url": "https://cks.nice.org.uk/topics/hepatitis-a/",
+    "summary": ""
+  },
+  "Hepatitis B": {
+    "url": "https://cks.nice.org.uk/topics/hepatitis-b/",
+    "summary": ""
+  },
+  "Hepatitis C": {
+    "url": "https://cks.nice.org.uk/topics/hepatitis-c/",
+    "summary": ""
+  },
+  "Herpes simplex - genital": {
+    "url": "https://cks.nice.org.uk/topics/herpes-simplex-genital/",
+    "summary": ""
+  },
+  "Herpes simplex - ocular": {
+    "url": "https://cks.nice.org.uk/topics/herpes-simplex-ocular/",
+    "summary": ""
+  },
+  "Herpes simplex - oral": {
+    "url": "https://cks.nice.org.uk/topics/herpes-simplex-oral/",
+    "summary": ""
+  },
+  "Herpetic whitlow - and staphylococcal": {
+    "url": "https://cks.nice.org.uk/topics/whitlow-staphylococcal-herpetic/",
+    "summary": ""
+  },
+  "Hiccups": {
+    "url": "https://cks.nice.org.uk/topics/hiccups/",
+    "summary": ""
+  },
+  "Hirsutism": {
+    "url": "https://cks.nice.org.uk/topics/hirsutism/",
+    "summary": ""
+  },
+  "HIV infection and AIDS": {
+    "url": "https://cks.nice.org.uk/topics/hiv-infection-aids/",
+    "summary": ""
+  },
+  "Hordeola (styes)": {
+    "url": "https://cks.nice.org.uk/topics/styes-hordeola/",
+    "summary": ""
+  },
+  "HPV and cervical cancer": {
+    "url": "https://cks.nice.org.uk/topics/cervical-cancer-hpv/",
+    "summary": ""
+  },
+  "Human and animal bites": {
+    "url": "https://cks.nice.org.uk/topics/bites-human-animal/",
+    "summary": ""
+  },
+  "Hypercalcaemia": {
+    "url": "https://cks.nice.org.uk/topics/hypercalcaemia/",
+    "summary": ""
+  },
+  "Hypercholesterolaemia - familial": {
+    "url": "https://cks.nice.org.uk/topics/hypercholesterolaemia-familial/",
+    "summary": ""
+  },
+  "Hyperhidrosis": {
+    "url": "https://cks.nice.org.uk/topics/hyperhidrosis/",
+    "summary": ""
+  },
+  "Hypertension": {
+    "url": "https://cks.nice.org.uk/topics/hypertension/",
+    "summary": ""
+  },
+  "Hypertension in pregnancy": {
+    "url": "https://cks.nice.org.uk/topics/hypertension-in-pregnancy/",
+    "summary": ""
+  },
+  "Hyperthyroidism": {
+    "url": "https://cks.nice.org.uk/topics/hyperthyroidism/",
+    "summary": ""
+  },
+  "Hypokalaemia": {
+    "url": "https://cks.nice.org.uk/topics/hypokalaemia/",
+    "summary": ""
+  },
+  "Hyponatraemia": {
+    "url": "https://cks.nice.org.uk/topics/hyponatraemia/",
+    "summary": ""
+  },
+  "Hypothyroidism": {
+    "url": "https://cks.nice.org.uk/topics/hypothyroidism/",
+    "summary": ""
+  },
+  "Immunizations - childhood": {
+    "url": "https://cks.nice.org.uk/topics/immunizations-childhood/",
+    "summary": ""
+  },
+  "Immunizations - pneumococcal": {
+    "url": "https://cks.nice.org.uk/topics/immunizations-pneumococcal/",
+    "summary": ""
+  },
+  "Immunizations - seasonal influenza": {
+    "url": "https://cks.nice.org.uk/topics/immunizations-seasonal-influenza/",
+    "summary": ""
+  },
+  "Immunizations - travel": {
+    "url": "https://cks.nice.org.uk/topics/immunizations-travel/",
+    "summary": ""
+  },
+  "Impetigo": {
+    "url": "https://cks.nice.org.uk/topics/impetigo/",
+    "summary": ""
+  },
+  "Incontinence - urinary, in women": {
+    "url": "https://cks.nice.org.uk/topics/incontinence-urinary-in-women/",
+    "summary": ""
+  },
+  "Infectious mononucleosis - Glandular fever": {
+    "url": "https://cks.nice.org.uk/topics/infectious-mononucleosis-glandular-fever/",
+    "summary": ""
+  },
+  "Infectious mononucleosis (glandular fever)": {
+    "url": "https://cks.nice.org.uk/topics/infectious-mononucleosis-glandular-fever/",
+    "summary": ""
+  },
+  "Infertility": {
+    "url": "https://cks.nice.org.uk/topics/infertility/",
+    "summary": ""
+  },
+  "Influenza - seasonal": {
+    "url": "https://cks.nice.org.uk/topics/influenza-seasonal/",
+    "summary": ""
+  },
+  "Influenza (seasonal) - immunizations": {
+    "url": "https://cks.nice.org.uk/topics/immunizations-seasonal-influenza/",
+    "summary": ""
+  },
+  "Insect bites and stings": {
+    "url": "https://cks.nice.org.uk/topics/insect-bites-stings/",
+    "summary": ""
+  },
+  "Insomnia": {
+    "url": "https://cks.nice.org.uk/topics/insomnia/",
+    "summary": ""
+  },
+  "Insulin therapy in type 1 diabetes": {
+    "url": "https://cks.nice.org.uk/topics/insulin-therapy-in-type-1-diabetes/",
+    "summary": ""
+  },
+  "Insulin therapy in type 2 diabetes": {
+    "url": "https://cks.nice.org.uk/topics/insulin-therapy-in-type-2-diabetes/",
+    "summary": ""
+  },
+  "Integrated health and social care for people experiencing homelessness": {
+    "url": "https://cks.nice.org.uk/topics/integrated-health-social-care-for-people-experiencing-homelessness/",
+    "summary": ""
+  },
+  "Iron deficiency anaemia": {
+    "url": "https://cks.nice.org.uk/topics/anaemia-iron-deficiency/",
+    "summary": ""
+  },
+  "Irritable bowel syndrome": {
+    "url": "https://cks.nice.org.uk/topics/irritable-bowel-syndrome/",
+    "summary": ""
+  },
+  "Itch - widespread": {
+    "url": "https://cks.nice.org.uk/topics/itch-widespread/",
+    "summary": ""
+  },
+  "Itch in pregnancy": {
+    "url": "https://cks.nice.org.uk/topics/itch-in-pregnancy/",
+    "summary": ""
+  },
+  "Jaundice in adults": {
+    "url": "https://cks.nice.org.uk/topics/jaundice-in-adults/",
+    "summary": ""
+  },
+  "Jaundice in the newborn": {
+    "url": "https://cks.nice.org.uk/topics/jaundice-in-the-newborn/",
+    "summary": ""
+  },
+  "Kidney disease - chronic": {
+    "url": "https://cks.nice.org.uk/topics/chronic-kidney-disease/",
+    "summary": ""
+  },
+  "Kidney injury - acute": {
+    "url": "https://cks.nice.org.uk/topics/acute-kidney-injury/",
+    "summary": ""
+  },
+  "Knee pain - assessment": {
+    "url": "https://cks.nice.org.uk/topics/knee-pain-assessment/",
+    "summary": ""
+  },
+  "Lacerations": {
+    "url": "https://cks.nice.org.uk/topics/lacerations/",
+    "summary": ""
+  },
+  "Learning disabilities": {
+    "url": "https://cks.nice.org.uk/topics/learning-disabilities/",
+    "summary": ""
+  },
+  "Leg cramps": {
+    "url": "https://cks.nice.org.uk/topics/leg-cramps/",
+    "summary": ""
+  },
+  "Leg ulcer - venous": {
+    "url": "https://cks.nice.org.uk/topics/leg-ulcer-venous/",
+    "summary": ""
+  },
+  "Limp (childhood) - acute": {
+    "url": "https://cks.nice.org.uk/topics/acute-childhood-limp/",
+    "summary": ""
+  },
+  "Lipid modification - CVD prevention": {
+    "url": "https://cks.nice.org.uk/topics/lipid-modification-cvd-prevention/",
+    "summary": ""
+  },
+  "Lipodermatosclerosis and venous eczema": {
+    "url": "https://cks.nice.org.uk/topics/venous-eczema-lipodermatosclerosis/",
+    "summary": ""
+  },
+  "Long-term effects of coronavirus (long COVID)": {
+    "url": "https://cks.nice.org.uk/topics/long-term-effects-of-coronavirus-long-covid/",
+    "summary": ""
+  },
+  "Low back pain (without radiculopathy)": {
+    "url": "https://cks.nice.org.uk/topics/back-pain-low-without-radiculopathy/",
+    "summary": ""
+  },
+  "Lung and pleural cancers - recognition and referral": {
+    "url": "https://cks.nice.org.uk/topics/lung-pleural-cancers-recognition-referral/",
+    "summary": ""
+  },
+  "LUTS in men": {
+    "url": "https://cks.nice.org.uk/topics/luts-in-men/",
+    "summary": ""
+  },
+  "Lyme disease": {
+    "url": "https://cks.nice.org.uk/topics/lyme-disease/",
+    "summary": ""
+  },
+  "Macular degeneration - age-related": {
+    "url": "https://cks.nice.org.uk/topics/macular-degeneration-age-related/",
+    "summary": ""
+  },
+  "Malaria": {
+    "url": "https://cks.nice.org.uk/topics/malaria/",
+    "summary": ""
+  },
+  "Malaria prophylaxis": {
+    "url": "https://cks.nice.org.uk/topics/malaria-prophylaxis/",
+    "summary": ""
+  },
+  "Male pattern hair loss (male androgenetic alopecia)": {
+    "url": "https://cks.nice.org.uk/topics/male-pattern-hair-loss-male-androgenetic-alopecia/",
+    "summary": ""
+  },
+  "Mastitis and breast abscess": {
+    "url": "https://cks.nice.org.uk/topics/mastitis-breast-abscess/",
+    "summary": ""
+  },
+  "Measles": {
+    "url": "https://cks.nice.org.uk/topics/measles/",
+    "summary": ""
+  },
+  "Meibomian cyst (chalazion)": {
+    "url": "https://cks.nice.org.uk/topics/meibomian-cyst-chalazion/",
+    "summary": ""
+  },
+  "Melanoma": {
+    "url": "https://cks.nice.org.uk/topics/melanoma/",
+    "summary": ""
+  },
+  "Ménière's disease": {
+    "url": "https://cks.nice.org.uk/topics/menieres-disease/",
+    "summary": ""
+  },
+  "Meningitis - bacterial meningitis and meningococcal disease": {
+    "url": "https://cks.nice.org.uk/topics/meningitis-bacterial-meningitis-meningococcal-disease/",
+    "summary": ""
+  },
+  "Menopause": {
+    "url": "https://cks.nice.org.uk/topics/menopause/",
+    "summary": ""
+  },
+  "Menorrhagia (heavy menstrual bleeding)": {
+    "url": "https://cks.nice.org.uk/topics/menorrhagia-heavy-menstrual-bleeding/",
+    "summary": ""
+  },
+  "Mental health in students": {
+    "url": "https://cks.nice.org.uk/topics/mental-health-in-students/",
+    "summary": ""
+  },
+  "MI - secondary prevention": {
+    "url": "https://cks.nice.org.uk/topics/mi-secondary-prevention/",
+    "summary": ""
+  },
+  "Migraine": {
+    "url": "https://cks.nice.org.uk/topics/migraine/",
+    "summary": ""
+  },
+  "Miscarriage": {
+    "url": "https://cks.nice.org.uk/topics/miscarriage/",
+    "summary": ""
+  },
+  "Molluscum contagiosum": {
+    "url": "https://cks.nice.org.uk/topics/molluscum-contagiosum/",
+    "summary": ""
+  },
+  "Morton's neuroma": {
+    "url": "https://cks.nice.org.uk/topics/mortons-neuroma/",
+    "summary": ""
+  },
+  "MRSA in primary care": {
+    "url": "https://cks.nice.org.uk/topics/mrsa-in-primary-care/",
+    "summary": ""
+  },
+  "Multimorbidity": {
+    "url": "https://cks.nice.org.uk/topics/multimorbidity/",
+    "summary": ""
+  },
+  "Multiple myeloma": {
+    "url": "https://cks.nice.org.uk/topics/multiple-myeloma/",
+    "summary": ""
+  },
+  "Multiple sclerosis": {
+    "url": "https://cks.nice.org.uk/topics/multiple-sclerosis/",
+    "summary": ""
+  },
+  "Mumps": {
+    "url": "https://cks.nice.org.uk/topics/mumps/",
+    "summary": ""
+  },
+  "Myalgic encephalomyelitis/chronic fatigue syndrome (ME/CFS)": {
+    "url": "https://cks.nice.org.uk/topics/myalgic-encephalomyelitis-chronic-fatigue-syndrome-me/cfs/",
+    "summary": ""
+  },
+  "Nappy rash": {
+    "url": "https://cks.nice.org.uk/topics/nappy-rash/",
+    "summary": ""
+  },
+  "Nausea/vomiting in pregnancy": {
+    "url": "https://cks.nice.org.uk/topics/nausea-vomiting-in-pregnancy/",
+    "summary": ""
+  },
+  "Neck lump": {
+    "url": "https://cks.nice.org.uk/topics/neck-lump/",
+    "summary": ""
+  },
+  "Neck pain - acute torticollis": {
+    "url": "https://cks.nice.org.uk/topics/neck-pain-acute-torticollis/",
+    "summary": ""
+  },
+  "Neck pain - cervical radiculopathy": {
+    "url": "https://cks.nice.org.uk/topics/neck-pain-cervical-radiculopathy/",
+    "summary": ""
+  },
+  "Neck pain - non-specific": {
+    "url": "https://cks.nice.org.uk/topics/neck-pain-non-specific/",
+    "summary": ""
+  },
+  "Neck pain - whiplash injury": {
+    "url": "https://cks.nice.org.uk/topics/neck-pain-whiplash-injury/",
+    "summary": ""
+  },
+  "Neuralgia - post-herpetic": {
+    "url": "https://cks.nice.org.uk/topics/post-herpetic-neuralgia/",
+    "summary": ""
+  },
+  "Neuropathic pain - drug treatment": {
+    "url": "https://cks.nice.org.uk/topics/neuropathic-pain-drug-treatment/",
+    "summary": ""
+  },
+  "Neutropenic sepsis": {
+    "url": "https://cks.nice.org.uk/topics/neutropenic-sepsis/",
+    "summary": ""
+  },
+  "Nocturnal enuresis - bedwetting": {
+    "url": "https://cks.nice.org.uk/topics/bedwetting-enuresis/",
+    "summary": ""
+  },
+  "Non-alcoholic fatty liver disease (NAFLD)": {
+    "url": "https://cks.nice.org.uk/topics/non-alcoholic-fatty-liver-disease-nafld/",
+    "summary": ""
+  },
+  "Nosebleeds (epistaxis)": {
+    "url": "https://cks.nice.org.uk/topics/epistaxis-nosebleeds/",
+    "summary": ""
+  },
+  "NSAIDs - prescribing issues": {
+    "url": "https://cks.nice.org.uk/topics/nsaids-prescribing-issues/",
+    "summary": ""
+  },
+  "Obesity": {
+    "url": "https://cks.nice.org.uk/topics/obesity/",
+    "summary": ""
+  },
+  "Obsessive-compulsive disorder": {
+    "url": "https://cks.nice.org.uk/topics/obsessive-compulsive-disorder/",
+    "summary": ""
+  },
+  "Obstructive sleep apnoea syndrome": {
+    "url": "https://cks.nice.org.uk/topics/obstructive-sleep-apnoea-syndrome/",
+    "summary": ""
+  },
+  "Olecranon bursitis": {
+    "url": "https://cks.nice.org.uk/topics/olecranon-bursitis/",
+    "summary": ""
+  },
+  "Opioid dependence": {
+    "url": "https://cks.nice.org.uk/topics/opioid-dependence/",
+    "summary": ""
+  },
+  "Osgood-Schlatter disease": {
+    "url": "https://cks.nice.org.uk/topics/osgood-schlatter-disease/",
+    "summary": ""
+  },
+  "Osteoarthritis": {
+    "url": "https://cks.nice.org.uk/topics/osteoarthritis/",
+    "summary": ""
+  },
+  "Osteoporosis - prevention of fragility fractures": {
+    "url": "https://cks.nice.org.uk/topics/osteoporosis-prevention-of-fragility-fractures/",
+    "summary": ""
+  },
+  "Otitis externa": {
+    "url": "https://cks.nice.org.uk/topics/otitis-externa/",
+    "summary": ""
+  },
+  "Otitis media - acute": {
+    "url": "https://cks.nice.org.uk/topics/otitis-media-acute/",
+    "summary": ""
+  },
+  "Otitis media - chronic suppurative": {
+    "url": "https://cks.nice.org.uk/topics/otitis-media-chronic-suppurative/",
+    "summary": ""
+  },
+  "Otitis media with effusion": {
+    "url": "https://cks.nice.org.uk/topics/otitis-media-with-effusion/",
+    "summary": ""
+  },
+  "Ovarian cancer": {
+    "url": "https://cks.nice.org.uk/topics/ovarian-cancer/",
+    "summary": ""
+  },
+  "Palliative cancer care - pain": {
+    "url": "https://cks.nice.org.uk/topics/palliative-cancer-care-pain/",
+    "summary": ""
+  },
+  "Palliative care - constipation": {
+    "url": "https://cks.nice.org.uk/topics/palliative-care-constipation/",
+    "summary": ""
+  },
+  "Palliative care - cough": {
+    "url": "https://cks.nice.org.uk/topics/palliative-care-cough/",
+    "summary": ""
+  },
+  "Palliative care - dyspnoea": {
+    "url": "https://cks.nice.org.uk/topics/palliative-care-dyspnoea/",
+    "summary": ""
+  },
+  "Palliative care - general issues": {
+    "url": "https://cks.nice.org.uk/topics/palliative-care-general-issues/",
+    "summary": ""
+  },
+  "Palliative care - malignant skin ulcer": {
+    "url": "https://cks.nice.org.uk/topics/palliative-care-malignant-skin-ulcer/",
+    "summary": ""
+  },
+  "Palliative care - nausea and vomiting": {
+    "url": "https://cks.nice.org.uk/topics/palliative-care-nausea-vomiting/",
+    "summary": ""
+  },
+  "Palliative care - oral": {
+    "url": "https://cks.nice.org.uk/topics/palliative-care-oral/",
+    "summary": ""
+  },
+  "Palliative care - secretions": {
+    "url": "https://cks.nice.org.uk/topics/palliative-care-secretions/",
+    "summary": ""
+  },
+  "Palpitations": {
+    "url": "https://cks.nice.org.uk/topics/palpitations/",
+    "summary": ""
+  },
+  "Pancreatitis - acute": {
+    "url": "https://cks.nice.org.uk/topics/pancreatitis-acute/",
+    "summary": ""
+  },
+  "Pancreatitis - chronic": {
+    "url": "https://cks.nice.org.uk/topics/pancreatitis-chronic/",
+    "summary": ""
+  },
+  "Parkinson's disease": {
+    "url": "https://cks.nice.org.uk/topics/parkinsons-disease/",
+    "summary": ""
+  },
+  "Paronychia - acute": {
+    "url": "https://cks.nice.org.uk/topics/paronychia-acute/",
+    "summary": ""
+  },
+  "Parvovirus B19 infection": {
+    "url": "https://cks.nice.org.uk/topics/parvovirus-b19-infection/",
+    "summary": ""
+  },
+  "Pelvic inflammatory disease": {
+    "url": "https://cks.nice.org.uk/topics/pelvic-inflammatory-disease/",
+    "summary": ""
+  },
+  "Periodontitis and gingivitis": {
+    "url": "https://cks.nice.org.uk/topics/gingivitis-periodontitis/",
+    "summary": ""
+  },
+  "Peripheral arterial disease": {
+    "url": "https://cks.nice.org.uk/topics/peripheral-arterial-disease/",
+    "summary": ""
+  },
+  "Pigmented lesions and melanoma": {
+    "url": "https://cks.nice.org.uk/topics/melanoma/",
+    "summary": ""
+  },
+  "Pilonidal sinus disease": {
+    "url": "https://cks.nice.org.uk/topics/pilonidal-sinus-disease/",
+    "summary": ""
+  },
+  "Pityriasis rosea": {
+    "url": "https://cks.nice.org.uk/topics/pityriasis-rosea/",
+    "summary": ""
+  },
+  "Pityriasis versicolor": {
+    "url": "https://cks.nice.org.uk/topics/pityriasis-versicolor/",
+    "summary": ""
+  },
+  "Plantar fasciitis": {
+    "url": "https://cks.nice.org.uk/topics/plantar-fasciitis/",
+    "summary": ""
+  },
+  "Platelets - abnormal counts and cancer": {
+    "url": "https://cks.nice.org.uk/topics/platelets-abnormal-counts-cancer/",
+    "summary": ""
+  },
+  "Pneumococcal immunizations": {
+    "url": "https://cks.nice.org.uk/topics/immunizations-pneumococcal/",
+    "summary": ""
+  },
+  "Poisoning or overdose": {
+    "url": "https://cks.nice.org.uk/topics/poisoning-or-overdose/",
+    "summary": ""
+  },
+  "Polycystic ovary syndrome": {
+    "url": "https://cks.nice.org.uk/topics/polycystic-ovary-syndrome/",
+    "summary": ""
+  },
+  "Polycythaemia/erythrocytosis": {
+    "url": "https://cks.nice.org.uk/topics/polycythaemia-erythrocytosis/",
+    "summary": ""
+  },
+  "Polymyalgia rheumatica": {
+    "url": "https://cks.nice.org.uk/topics/polymyalgia-rheumatica/",
+    "summary": ""
+  },
+  "Post-herpetic neuralgia": {
+    "url": "https://cks.nice.org.uk/topics/post-herpetic-neuralgia/",
+    "summary": ""
+  },
+  "Post-traumatic stress disorder": {
+    "url": "https://cks.nice.org.uk/topics/post-traumatic-stress-disorder/",
+    "summary": ""
+  },
+  "Postnatal and antenatal depression": {
+    "url": "https://cks.nice.org.uk/topics/depression-antenatal-postnatal/",
+    "summary": ""
+  },
+  "Postnatal care": {
+    "url": "https://cks.nice.org.uk/topics/postnatal-care/",
+    "summary": ""
+  },
+  "Pre-conception - advice and management": {
+    "url": "https://cks.nice.org.uk/topics/pre-conception-advice-management/",
+    "summary": ""
+  },
+  "Pre-patellar bursitis": {
+    "url": "https://cks.nice.org.uk/topics/pre-patellar-bursitis/",
+    "summary": ""
+  },
+  "Pregnancy (uncomplicated) - antenatal care": {
+    "url": "https://cks.nice.org.uk/topics/antenatal-care-uncomplicated-pregnancy/",
+    "summary": ""
+  },
+  "Premenstrual syndrome": {
+    "url": "https://cks.nice.org.uk/topics/premenstrual-syndrome/",
+    "summary": ""
+  },
+  "Pressure ulcers": {
+    "url": "https://cks.nice.org.uk/topics/pressure-ulcers/",
+    "summary": ""
+  },
+  "Problem drinking - alcohol": {
+    "url": "https://cks.nice.org.uk/topics/alcohol-problem-drinking/",
+    "summary": ""
+  },
+  "Prostate cancer": {
+    "url": "https://cks.nice.org.uk/topics/prostate-cancer/",
+    "summary": ""
+  },
+  "Prostatitis - acute": {
+    "url": "https://cks.nice.org.uk/topics/prostatitis-acute/",
+    "summary": ""
+  },
+  "Prostatitis - chronic": {
+    "url": "https://cks.nice.org.uk/topics/prostatitis-chronic/",
+    "summary": ""
+  },
+  "Pruritus ani": {
+    "url": "https://cks.nice.org.uk/topics/pruritus-ani/",
+    "summary": ""
+  },
+  "Pruritus vulvae": {
+    "url": "https://cks.nice.org.uk/topics/pruritus-vulvae/",
+    "summary": ""
+  },
+  "Psoriasis": {
+    "url": "https://cks.nice.org.uk/topics/psoriasis/",
+    "summary": ""
+  },
+  "Psychosis and schizophrenia": {
+    "url": "https://cks.nice.org.uk/topics/psychosis-schizophrenia/",
+    "summary": ""
+  },
+  "Pubic lice": {
+    "url": "https://cks.nice.org.uk/topics/pubic-lice/",
+    "summary": ""
+  },
+  "Pulmonary embolism": {
+    "url": "https://cks.nice.org.uk/topics/pulmonary-embolism/",
+    "summary": ""
+  },
+  "Pyelonephritis - acute": {
+    "url": "https://cks.nice.org.uk/topics/pyelonephritis-acute/",
+    "summary": ""
+  },
+  "Radiculopathy (cervical) - neck pain": {
+    "url": "https://cks.nice.org.uk/topics/neck-pain-cervical-radiculopathy/",
+    "summary": ""
+  },
+  "Radiculopathy (lumbar) - sciatica": {
+    "url": "https://cks.nice.org.uk/topics/sciatica-lumbar-radiculopathy/",
+    "summary": ""
+  },
+  "Raynaud's phenomenon": {
+    "url": "https://cks.nice.org.uk/topics/raynauds-phenomenon/",
+    "summary": ""
+  },
+  "Red eye": {
+    "url": "https://cks.nice.org.uk/topics/red-eye/",
+    "summary": ""
+  },
+  "Rehabilitation after traumatic injury": {
+    "url": "https://cks.nice.org.uk/topics/rehabilitation-after-traumatic-injury/",
+    "summary": ""
+  },
+  "Renal or ureteric colic - acute": {
+    "url": "https://cks.nice.org.uk/topics/renal-or-ureteric-colic-acute/",
+    "summary": ""
+  },
+  "Restless legs syndrome": {
+    "url": "https://cks.nice.org.uk/topics/restless-legs-syndrome/",
+    "summary": ""
+  },
+  "Retinal detachment": {
+    "url": "https://cks.nice.org.uk/topics/retinal-detachment/",
+    "summary": ""
+  },
+  "Rheumatoid arthritis": {
+    "url": "https://cks.nice.org.uk/topics/rheumatoid-arthritis/",
+    "summary": ""
+  },
+  "Rosacea": {
+    "url": "https://cks.nice.org.uk/topics/rosacea/",
+    "summary": ""
+  },
+  "Roundworm": {
+    "url": "https://cks.nice.org.uk/topics/roundworm/",
+    "summary": ""
+  },
+  "Rubella": {
+    "url": "https://cks.nice.org.uk/topics/rubella/",
+    "summary": ""
+  },
+  "Safeguarding adults in care homes": {
+    "url": "https://cks.nice.org.uk/topics/safeguarding-adults-in-care-homes/",
+    "summary": ""
+  },
+  "Sarcoidosis": {
+    "url": "https://cks.nice.org.uk/topics/sarcoidosis/",
+    "summary": ""
+  },
+  "Sarcoma (bone and soft tissue) - recognition and referral": {
+    "url": "https://cks.nice.org.uk/topics/bone-soft-tissue-sarcoma-recognition-referral/",
+    "summary": ""
+  },
+  "Scabies": {
+    "url": "https://cks.nice.org.uk/topics/scabies/",
+    "summary": ""
+  },
+  "Scalds and burns": {
+    "url": "https://cks.nice.org.uk/topics/burns-scalds/",
+    "summary": ""
+  },
+  "Scarlet fever": {
+    "url": "https://cks.nice.org.uk/topics/scarlet-fever/",
+    "summary": ""
+  },
+  "Schizophrenia and psychosis": {
+    "url": "https://cks.nice.org.uk/topics/psychosis-schizophrenia/",
+    "summary": ""
+  },
+  "Sciatica (lumbar radiculopathy)": {
+    "url": "https://cks.nice.org.uk/topics/sciatica-lumbar-radiculopathy/",
+    "summary": ""
+  },
+  "Scrotal pain and swelling": {
+    "url": "https://cks.nice.org.uk/topics/scrotal-pain-swelling/",
+    "summary": ""
+  },
+  "Seborrhoeic dermatitis": {
+    "url": "https://cks.nice.org.uk/topics/seborrhoeic-dermatitis/",
+    "summary": ""
+  },
+  "Self-harm": {
+    "url": "https://cks.nice.org.uk/topics/self-harm/",
+    "summary": ""
+  },
+  "Sensory neuropathy": {
+    "url": "https://cks.nice.org.uk/topics/sensory-neuropathy/",
+    "summary": ""
+  },
+  "Sepsis": {
+    "url": "https://cks.nice.org.uk/topics/sepsis/",
+    "summary": ""
+  },
+  "Shingles": {
+    "url": "https://cks.nice.org.uk/topics/shingles/",
+    "summary": ""
+  },
+  "Shoulder pain": {
+    "url": "https://cks.nice.org.uk/topics/shoulder-pain/",
+    "summary": ""
+  },
+  "Sickle cell disease": {
+    "url": "https://cks.nice.org.uk/topics/sickle-cell-disease/",
+    "summary": ""
+  },
+  "Sinusitis": {
+    "url": "https://cks.nice.org.uk/topics/sinusitis/",
+    "summary": ""
+  },
+  "Skin cancers - recognition and referral": {
+    "url": "https://cks.nice.org.uk/topics/skin-cancers-recognition-referral/",
+    "summary": ""
+  },
+  "Sleep disorders - shift work and jet lag": {
+    "url": "https://cks.nice.org.uk/topics/sleep-disorders-shift-work-jet-lag/",
+    "summary": ""
+  },
+  "Smoking cessation": {
+    "url": "https://cks.nice.org.uk/topics/smoking-cessation/",
+    "summary": ""
+  },
+  "Sore throat - acute": {
+    "url": "https://cks.nice.org.uk/topics/sore-throat-acute/",
+    "summary": ""
+  },
+  "Spondyloarthritis and psoriatic arthropathy": {
+    "url": "https://cks.nice.org.uk/topics/spondyloarthritis-psoriatic-arthropathy/",
+    "summary": ""
+  },
+  "Sprains and strains": {
+    "url": "https://cks.nice.org.uk/topics/sprains-strains/",
+    "summary": ""
+  },
+  "Squint in children": {
+    "url": "https://cks.nice.org.uk/topics/squint-in-children/",
+    "summary": ""
+  },
+  "Staphylococcal carriage, boils and carbuncles": {
+    "url": "https://cks.nice.org.uk/topics/boils-carbuncles-staphylococcal-carriage/",
+    "summary": ""
+  },
+  "Staphylococcal whitlow - and herpetic": {
+    "url": "https://cks.nice.org.uk/topics/whitlow-staphylococcal-herpetic/",
+    "summary": ""
+  },
+  "Stroke and TIA": {
+    "url": "https://cks.nice.org.uk/topics/stroke-tia/",
+    "summary": ""
+  },
+  "Styes (hordeola)": {
+    "url": "https://cks.nice.org.uk/topics/styes-hordeola/",
+    "summary": ""
+  },
+  "Superficial vein thrombosis (superficial thrombophlebitis)": {
+    "url": "https://cks.nice.org.uk/topics/superficial-vein-thrombosis-superficial-thrombophlebitis/",
+    "summary": ""
+  },
+  "Support for adult carers": {
+    "url": "https://cks.nice.org.uk/topics/support-for-adult-carers/",
+    "summary": ""
+  },
+  "Syphilis": {
+    "url": "https://cks.nice.org.uk/topics/syphilis/",
+    "summary": ""
+  },
+  "Tamoxifen - managing adverse effects": {
+    "url": "https://cks.nice.org.uk/topics/tamoxifen-managing-adverse-effects/",
+    "summary": ""
+  },
+  "Teething": {
+    "url": "https://cks.nice.org.uk/topics/teething/",
+    "summary": ""
+  },
+  "Temporomandibular disorders (TMDs)": {
+    "url": "https://cks.nice.org.uk/topics/temporomandibular-disorders-tmds/",
+    "summary": ""
+  },
+  "Tennis elbow": {
+    "url": "https://cks.nice.org.uk/topics/tennis-elbow/",
+    "summary": ""
+  },
+  "Threadworm": {
+    "url": "https://cks.nice.org.uk/topics/threadworm/",
+    "summary": ""
+  },
+  "Tinnitus": {
+    "url": "https://cks.nice.org.uk/topics/tinnitus/",
+    "summary": ""
+  },
+  "Tiredness/fatigue in adults": {
+    "url": "https://cks.nice.org.uk/topics/tiredness-fatigue-in-adults/",
+    "summary": ""
+  },
+  "Torticollis (acute) - neck pain": {
+    "url": "https://cks.nice.org.uk/topics/neck-pain-acute-torticollis/",
+    "summary": ""
+  },
+  "Travel immunizations": {
+    "url": "https://cks.nice.org.uk/topics/immunizations-travel/",
+    "summary": ""
+  },
+  "Trichomoniasis": {
+    "url": "https://cks.nice.org.uk/topics/trichomoniasis/",
+    "summary": ""
+  },
+  "Trigeminal neuralgia": {
+    "url": "https://cks.nice.org.uk/topics/trigeminal-neuralgia/",
+    "summary": ""
+  },
+  "Tuberculosis": {
+    "url": "https://cks.nice.org.uk/topics/tuberculosis/",
+    "summary": ""
+  },
+  "Type 1 diabetes": {
+    "url": "https://cks.nice.org.uk/topics/diabetes-type-1/",
+    "summary": ""
+  },
+  "Type 1 diabetes - insulin therapy": {
+    "url": "https://cks.nice.org.uk/topics/insulin-therapy-in-type-1-diabetes/",
+    "summary": ""
+  },
+  "Type 2 diabetes": {
+    "url": "https://cks.nice.org.uk/topics/diabetes-type-2/",
+    "summary": ""
+  },
+  "Type 2 diabetes - insulin therapy": {
+    "url": "https://cks.nice.org.uk/topics/insulin-therapy-in-type-2-diabetes/",
+    "summary": ""
+  },
+  "Ulcerative colitis": {
+    "url": "https://cks.nice.org.uk/topics/ulcerative-colitis/",
+    "summary": ""
+  },
+  "Ulcers - aphthous": {
+    "url": "https://cks.nice.org.uk/topics/aphthous-ulcer/",
+    "summary": ""
+  },
+  "Undescended testes": {
+    "url": "https://cks.nice.org.uk/topics/undescended-testes/",
+    "summary": ""
+  },
+  "Urethritis - male": {
+    "url": "https://cks.nice.org.uk/topics/urethritis-male/",
+    "summary": ""
+  },
+  "Urinary incontinence in women": {
+    "url": "https://cks.nice.org.uk/topics/incontinence-urinary-in-women/",
+    "summary": ""
+  },
+  "Urinary tract infection - children": {
+    "url": "https://cks.nice.org.uk/topics/urinary-tract-infection-children/",
+    "summary": ""
+  },
+  "Urinary tract infection (lower) - men": {
+    "url": "https://cks.nice.org.uk/topics/urinary-tract-infection-lower-men/",
+    "summary": ""
+  },
+  "Urinary tract infection (lower) - women": {
+    "url": "https://cks.nice.org.uk/topics/urinary-tract-infection-lower-women/",
+    "summary": ""
+  },
+  "Urological cancers - recognition and referral": {
+    "url": "https://cks.nice.org.uk/topics/urological-cancers-recognition-referral/",
+    "summary": ""
+  },
+  "Urticaria": {
+    "url": "https://cks.nice.org.uk/topics/urticaria/",
+    "summary": ""
+  },
+  "Uveitis": {
+    "url": "https://cks.nice.org.uk/topics/uveitis/",
+    "summary": ""
+  },
+  "Vaginal discharge": {
+    "url": "https://cks.nice.org.uk/topics/vaginal-discharge/",
+    "summary": ""
+  },
+  "Varicocele": {
+    "url": "https://cks.nice.org.uk/topics/varicocele/",
+    "summary": ""
+  },
+  "Varicose veins": {
+    "url": "https://cks.nice.org.uk/topics/varicose-veins/",
+    "summary": ""
+  },
+  "Venous eczema and lipodermatosclerosis": {
+    "url": "https://cks.nice.org.uk/topics/venous-eczema-lipodermatosclerosis/",
+    "summary": ""
+  },
+  "Vertigo": {
+    "url": "https://cks.nice.org.uk/topics/vertigo/",
+    "summary": ""
+  },
+  "Vertigo - benign paroxysmal positional": {
+    "url": "https://cks.nice.org.uk/topics/benign-paroxysmal-positional-vertigo/",
+    "summary": ""
+  },
+  "Veruccae and warts": {
+    "url": "https://cks.nice.org.uk/topics/warts-verrucae/",
+    "summary": ""
+  },
+  "Vestibular neuronitis": {
+    "url": "https://cks.nice.org.uk/topics/vestibular-neuronitis/",
+    "summary": ""
+  },
+  "Vitamin D deficiency in adults": {
+    "url": "https://cks.nice.org.uk/topics/vitamin-d-deficiency-in-adults/",
+    "summary": ""
+  },
+  "Vitamin D deficiency in children": {
+    "url": "https://cks.nice.org.uk/topics/vitamin-d-deficiency-in-children/",
+    "summary": ""
+  },
+  "Vitiligo": {
+    "url": "https://cks.nice.org.uk/topics/vitiligo/",
+    "summary": ""
+  },
+  "Warts - anogenital": {
+    "url": "https://cks.nice.org.uk/topics/warts-anogenital/",
+    "summary": ""
+  },
+  "Warts and verrucae": {
+    "url": "https://cks.nice.org.uk/topics/warts-verrucae/",
+    "summary": ""
+  },
+  "Whiplash injury - neck pain": {
+    "url": "https://cks.nice.org.uk/topics/neck-pain-whiplash-injury/",
+    "summary": ""
+  },
+  "Whitlow (staphylococcal and herpetic)": {
+    "url": "https://cks.nice.org.uk/topics/whitlow-staphylococcal-herpetic/",
+    "summary": ""
+  },
+  "Whooping cough": {
+    "url": "https://cks.nice.org.uk/topics/whooping-cough/",
+    "summary": ""
+  },
+  "Z-drug and benzodiazepine withdrawal": {
+    "url": "https://cks.nice.org.uk/topics/benzodiazepine-z-drug-withdrawal/",
+    "summary": ""
+  }
+}

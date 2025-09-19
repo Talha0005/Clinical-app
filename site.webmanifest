@@ -1,0 +1,22 @@
+{
+  "name": "DigiClinic - AI-Powered Digital Medical Clinic",
+  "short_name": "DigiClinic",
+  "description": "NHS-tailored AI medical consultation platform with Dr. Hervix",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2563eb",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/medical.svg",
+      "sizes": "64x64",
+      "type": "image/svg+xml"
+    }
+  ]
+}

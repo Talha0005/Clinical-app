@@ -1,0 +1,28 @@
+# Core MCP dependencies
+mcp>=1.0.0
+
+# Web framework and ASGI server
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+
+# HTTP and middleware
+starlette>=0.27.0
+aiofiles>=23.0.0
+
+# Web scraping
+playwright>=1.40.0
+
+# Authentication
+python-jose[cryptography]>=3.3.0
+python-multipart>=0.0.6
+python-dotenv>=1.0.0
+PyJWT>=2.8.0
+
+# HTTP client for NHS Terminology Server
+aiohttp>=3.9.0
+langfuse
+assemblyai
+litellm
+cachetools
+pillow
+numpy
