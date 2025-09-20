@@ -307,9 +307,8 @@ async def chat_with_model_stream(
         try:
             abstraction_layer = get_model_abstraction_layer()
 
-            # For streaming, we'll need to modify the abstraction layer
-            # This is a placeholder for SSE streaming
-            yield f"data: {json.dumps({'type': 'start', 'model': request.model_id or 'default'})}\n\n"
+            # Yield a start event with conversation_id
+            yield f"data: {json.dumps({'type': 'start', 'conversation_id': request.conversation_id})}\n\n"
 
             response = await abstraction_layer.process_message(
                 message=request.message,
@@ -317,18 +316,21 @@ async def chat_with_model_stream(
                 model_override=request.model_id
             )
 
-            # Stream the response in chunks
             content = response["content"]
-            chunk_size = 50
+            
+            # Stream the response in chunks for the 'content' events
+            chunk_size = 50  # Adjust chunk size as needed
             for i in range(0, len(content), chunk_size):
                 chunk = content[i:i+chunk_size]
-                yield f"data: {json.dumps({'type': 'content', 'content': chunk})}\n\n"
+                yield f"data: {json.dumps({'type': 'content', 'text': chunk})}\n\n"
 
-            yield f"data: {json.dumps({'type': 'done'})}\n\n"
+            # Yield a final 'complete' event with the full response
+            yield f"data: {json.dumps({'type': 'complete', 'full_response': content, 'conversation_id': request.conversation_id})}\n\n"
 
         except Exception as e:
+            # Yield an error event if something goes wrong
             yield f"data: {json.dumps({'type': 'error', 'error': str(e)})}\n\n"
-
+            
     return StreamingResponse(
         generate(),
         media_type="text/event-stream",
