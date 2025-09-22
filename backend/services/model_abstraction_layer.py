@@ -38,12 +38,12 @@ class ModelProvider(Enum):
     GPT4_TURBO = "gpt-4-turbo-preview"
     GPT4O = "gpt-4o"
     GPT35_TURBO = "gpt-3.5-turbo"
-    GEMINI_PRO = "gemini-1.5-pro"
-    GEMINI_FLASH = "gemini-1.5-flash"
-    LLAMA3_70B = "llama-3-70b"
+    GEMINI_PRO = "gemini/gemini-1.5-pro"
+    GEMINI_FLASH = "gemini/gemini-1.5-flash"
+    LLAMA3_70B = "together_ai/meta-llama/Llama-3-70b-chat-hf"
     MISTRAL_LARGE = "mistral-large-latest"
     MEDICAL_LLAMA = "ollama/medllama2"  # Specialized medical model
-    LOCAL_LLAMA = "local/llama3"  # For privacy-conscious patients
+    LOCAL_LLAMA = "ollama/llama3"  # For privacy-conscious patients
 
 
 @dataclass
@@ -565,22 +565,7 @@ class ModelAbstractionLayer:
 
     def _get_litellm_model_string(self, model: ModelProvider) -> str:
         """Convert our model enum to LiteLLM model string."""
-        # Direct mappings for LiteLLM
-        mappings = {
-            ModelProvider.CLAUDE_OPUS: "anthropic/claude-3-opus-20240229",
-            ModelProvider.CLAUDE_SONNET: "anthropic/claude-3-5-sonnet-20241022",
-            ModelProvider.CLAUDE_HAIKU: "anthropic/claude-3-haiku-20240307",
-            ModelProvider.GPT4_TURBO: "gpt-4-turbo-preview",
-            ModelProvider.GPT4O: "gpt-4o",
-            ModelProvider.GPT35_TURBO: "gpt-3.5-turbo",
-            ModelProvider.GEMINI_PRO: "gemini/gemini-1.5-pro",
-            ModelProvider.GEMINI_FLASH: "gemini/gemini-1.5-flash",
-            ModelProvider.LLAMA3_70B: "together_ai/meta-llama/Llama-3-70b-chat-hf",
-            ModelProvider.MISTRAL_LARGE: "mistral/mistral-large-latest",
-            ModelProvider.MEDICAL_LLAMA: "ollama/medllama2",
-            ModelProvider.LOCAL_LLAMA: "ollama/llama3",
-        }
-        return mappings.get(model, "claude-3-5-sonnet-20241022")
+        return model.value
 
     async def _stream_completion(
         self, model: str, messages: List[Dict], generation

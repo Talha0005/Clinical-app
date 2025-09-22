@@ -9,7 +9,7 @@ from typing import List, Optional, Dict, Any
 import json
 
 from auth import verify_token
-from services.model_abstraction_layer import get_model_abstraction_layer
+from services.model_abstraction_layer import get_model_abstraction_layer, ModelProvider
 
 router = APIRouter(prefix="/api/models", tags=["Model Selection"])
 
@@ -31,13 +31,7 @@ class ModelSwitchRequest(BaseModel):
 
     @validator('model_id')
     def validate_model_id(cls, v):
-        allowed_models = [
-            'anthropic/claude-3-opus-20240229',
-            'anthropic/claude-3-5-sonnet-20241022',
-            'ollama/medllama2',
-            'gpt-4-turbo',
-            'gemini-pro'
-        ]
+        allowed_models = [model.value for model in ModelProvider]
         if v not in allowed_models:
             raise ValueError(f'Model ID must be one of: {", ".join(allowed_models)}')
         return v
@@ -51,13 +45,7 @@ class ModelCompareRequest(BaseModel):
 
     @validator('models')
     def validate_models(cls, v):
-        allowed_models = [
-            'anthropic/claude-3-opus-20240229',
-            'anthropic/claude-3-5-sonnet-20241022',
-            'ollama/medllama2',
-            'gpt-4-turbo',
-            'gemini-pro'
-        ]
+        allowed_models = [model.value for model in ModelProvider]
         for model in v:
             if model not in allowed_models:
                 raise ValueError(f'All models must be from: {", ".join(allowed_models)}')
@@ -97,13 +85,7 @@ class ModelChatRequest(BaseModel):
     def validate_model_id(cls, v):
         if v is None:
             return v
-        allowed_models = [
-            'anthropic/claude-3-opus-20240229',
-            'anthropic/claude-3-5-sonnet-20241022',
-            'ollama/medllama2',
-            'gpt-4-turbo',
-            'gemini-pro'
-        ]
+        allowed_models = [model.value for model in ModelProvider]
         if v not in allowed_models:
             raise ValueError(f'Model ID must be one of: {", ".join(allowed_models)}')
         return v
