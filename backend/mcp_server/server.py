@@ -16,24 +16,7 @@ from mcp.server.sse import SseServerTransport
 from mcp.types import Tool
 from starlette.responses import Response
 
-try:
-    from .tools import (
-        get_create_patient_tool,
-        get_patient_db_tool,
-        get_patient_list_tool,
-        handle_create_patient,
-        handle_patient_db,
-        handle_patient_list,
-    )
-except ImportError:
-    from tools import (
-        get_create_patient_tool,
-        get_patient_db_tool,
-        get_patient_list_tool,
-        handle_create_patient,
-        handle_patient_db,
-        handle_patient_list,
-    )
+from . import tool_registry
 
 
 class DigiCareMCPServer:
@@ -48,7 +31,7 @@ class DigiCareMCPServer:
         self.sessions: Dict[str, Dict[str, Any]] = {}
         self.logger = logging.getLogger(__name__)
         self._setup_logging()
-        self._setup_http_routes()
+        self._setup_routes()
         self._setup_middleware()
 
         # Create MCP SSE transport
@@ -108,23 +91,12 @@ class DigiCareMCPServer:
         @mcp_server.list_tools()
         async def list_tools() -> List[Tool]:
             """List available tools."""
-            return [
-                get_patient_db_tool(),
-                get_patient_list_tool(),
-                get_create_patient_tool(),
-            ]
+            return tool_registry.get_all_tools()
 
         @mcp_server.call_tool()
         async def call_tool(name: str, arguments: Dict[str, Any]):
             """Handle tool calls."""
-            if name == "patient-db":
-                return await handle_patient_db(arguments)
-            elif name == "patient-list":
-                return await handle_patient_list(arguments)
-            elif name == "create-patient":
-                return await handle_create_patient(arguments)
-            else:
-                raise ValueError(f"Unknown tool: {name}")
+            return await tool_registry.call_tool(name, arguments)
 
         return mcp_server
 
@@ -175,200 +147,14 @@ class DigiCareMCPServer:
             allow_headers=["*"],
         )
 
-    def _setup_http_routes(self):
+    def _setup_routes(self):
         """Setup HTTP routes."""
 
-        @self.app.get("/")
-        async def root():
-            """Root endpoint."""
-            self.logger.info("🏠 Root endpoint accessed")
-            return {
-                "name": "DigiCare MCP Server",
-                "version": "0.1.0",
-                "description": "A simple MCP server with Streamable HTTP transport",
-                "mcp_endpoint": "/mcp",
-                "transport": "streamable_http",
-            }
-
-        @self.app.get("/health")
-        async def health():
-            """Health check endpoint."""
-            return {"status": "healthy"}
-
-        @self.app.get("/tools")
-        async def list_tools_http():
-            """HTTP endpoint to list tools."""
-            # Return our tools directly
-            tools = [
-                get_patient_db_tool(),
-                get_patient_list_tool(),
-                get_create_patient_tool(),
-            ]
-            return {"tools": [tool.model_dump() for tool in tools]}
-
-        @self.app.post("/tools/{tool_name}")
-        async def call_tool_http(tool_name: str, arguments: Dict[str, Any] = None):
-            """HTTP endpoint to call a tool."""
-            if arguments is None:
-                arguments = {}
-
-            try:
-                # Handle tool calls directly
-                if tool_name == "patient-db":
-                    result = await handle_patient_db(arguments)
-                    return {"result": [content.model_dump() for content in result]}
-                elif tool_name == "patient-list":
-                    result = await handle_patient_list(arguments)
-                    return {"result": [content.model_dump() for content in result]}
-                elif tool_name == "create-patient":
-                    result = await handle_create_patient(arguments)
-                    return {"result": [content.model_dump() for content in result]}
-                else:
-                    raise HTTPException(
-                        status_code=404, detail=f"Unknown tool: {tool_name}"
-                    )
-            except Exception as e:
-                raise HTTPException(status_code=400, detail=str(e))
-
-        @self.app.api_route("/mcp", methods=["GET", "POST"])
-        async def mcp_endpoint(
-            request: Request,
-            origin: Optional[str] = Header(None),
-            mcp_session_id: Optional[str] = Header(None, alias="Mcp-Session-Id"),
-        ):
-            """Main MCP endpoint supporting both GET (SSE) and POST (JSON-RPC)."""
-            self.logger.info(f"🔧 MCP endpoint accessed: {request.method}")
-            self.logger.info(f"🔐 Origin: {origin}")
-            self.logger.info(f"🆔 Session ID: {mcp_session_id}")
-
-            # Validate Origin header for security (DNS rebinding protection)
-            if origin and not self._is_valid_origin(origin):
-                self.logger.warning(f"❌ Invalid origin rejected: {origin}")
-                raise HTTPException(status_code=403, detail="Invalid origin")
-
-            if request.method == "GET":
-                self.logger.info("📡 Handling SSE stream request")
-                return await self._handle_sse_stream(request, mcp_session_id)
-            elif request.method == "POST":
-                self.logger.info("📨 Handling JSON-RPC request")
-                return await self._handle_json_rpc(request, mcp_session_id)
-
-        @self.app.get("/sse")
-        async def sse_endpoint(request: Request):
-            """SSE endpoint that Claude web expects - GET for SSE stream."""
-            self.logger.info(f"🌊 SSE endpoint accessed: GET")
-
-            # Validate Origin header for security (DNS rebinding protection)
-            origin = request.headers.get("origin")
-            if origin and not self._is_valid_origin(origin):
-                self.logger.warning(f"❌ Invalid origin rejected: {origin}")
-                raise HTTPException(status_code=403, detail="Invalid origin")
-
-            self.logger.info("📡 SSE: Creating proper MCP SSE connection")
-            return await self._handle_proper_mcp_sse(request)
-
-        @self.app.post("/message")
-        async def message_endpoint(request: Request):
-            """Handle POST messages for SSE sessions using the official MCP transport."""
-            self.logger.info("📨 Message endpoint accessed for MCP SSE transport")
-
-            # Use the official MCP SSE transport to handle POST messages
-            return await self.sse_transport.handle_post_message(
-                request.scope, request.receive, request._send
-            )
-
-        # OAuth discovery endpoints for Claude web compatibility
-        @self.app.get("/.well-known/oauth-authorization-server")
-        async def oauth_authorization_server(request: Request):
-            """OAuth authorization server discovery endpoint."""
-            self.logger.info("🔍 OAuth authorization server discovery requested")
-            base_url = f"{request.url.scheme}://{request.url.netloc}"
-            result = {
-                "authorization_endpoint": f"{base_url}/oauth/authorize",
-                "token_endpoint": f"{base_url}/oauth/token",
-                "response_types_supported": ["code"],
-                "grant_types_supported": ["authorization_code"],
-                "scopes_supported": ["mcp"],
-            }
-            self.logger.info(f"🔍 Returning OAuth config: {result}")
-            return result
-
-        @self.app.get("/.well-known/oauth-authorization-server/sse")
-        async def oauth_authorization_server_sse(request: Request):
-            """OAuth authorization server discovery for SSE endpoint."""
-            self.logger.info("🔍 OAuth authorization server SSE discovery requested")
-            base_url = f"{request.url.scheme}://{request.url.netloc}"
-            result = {
-                "authorization_endpoint": f"{base_url}/oauth/authorize",
-                "token_endpoint": f"{base_url}/oauth/token",
-                "response_types_supported": ["code"],
-                "grant_types_supported": ["authorization_code"],
-                "scopes_supported": ["mcp"],
-                "sse_endpoint": f"{base_url}/sse",
-            }
-            self.logger.info(f"🔍 Returning OAuth SSE config: {result}")
-            return result
-
-        @self.app.get("/.well-known/oauth-protected-resource")
-        async def oauth_protected_resource(request: Request):
-            """OAuth protected resource discovery endpoint."""
-            base_url = f"{request.url.scheme}://{request.url.netloc}"
-            return {
-                "resource_server": "digicare-mcp-server",
-                "authorization_servers": [base_url],
-                "scopes_supported": ["mcp"],
-                "bearer_methods_supported": ["header"],
-            }
-
-        @self.app.get("/.well-known/oauth-protected-resource/sse")
-        async def oauth_protected_resource_sse(request: Request):
-            """OAuth protected resource discovery for SSE endpoint."""
-            base_url = f"{request.url.scheme}://{request.url.netloc}"
-            return {
-                "resource_server": "digicare-mcp-server",
-                "authorization_servers": [base_url],
-                "scopes_supported": ["mcp"],
-                "bearer_methods_supported": ["header"],
-                "sse_endpoint": f"{base_url}/sse",
-            }
-
-        @self.app.post("/register")
-        async def oauth_register():
-            """OAuth client registration endpoint."""
-            return {
-                "client_id": "digicare-mcp-server",
-                "client_secret": "mock-secret",
-                "registration_access_token": "mock-token",
-            }
-
-        @self.app.get("/oauth/authorize")
-        async def oauth_authorize(request: Request):
-            """OAuth authorization endpoint."""
-            # For a mock implementation, just return success
-            client_id = request.query_params.get("client_id")
-            redirect_uri = request.query_params.get("redirect_uri")
-            state = request.query_params.get("state")
-
-            # In a real implementation, you'd show an authorization page
-            # For now, just redirect back with an authorization code
-            auth_code = "mock-auth-code"
-
-            if redirect_uri:
-                return RedirectResponse(
-                    f"{redirect_uri}?code={auth_code}&state={state}"
-                )
-            else:
-                return {"code": auth_code, "state": state}
-
-        @self.app.post("/oauth/token")
-        async def oauth_token():
-            """OAuth token endpoint."""
-            return {
-                "access_token": "mock-token",
-                "token_type": "Bearer",
-                "expires_in": 3600,
-                "scope": "mcp",
-            }
+        from .routes import main, tools, mcp, oauth
+        self.app.include_router(main.router)
+        self.app.include_router(tools.router)
+        self.app.include_router(mcp.create_mcp_router(self))
+        self.app.include_router(oauth.router)
 
     def _is_valid_origin(self, origin: str) -> bool:
         """Validate origin to prevent DNS rebinding attacks."""
@@ -576,12 +362,7 @@ class DigiCareMCPServer:
                 }
 
             elif method == "tools/list":
-                # Get tools from our MCP server
-                tools = [
-                    get_patient_db_tool(),
-                    get_patient_list_tool(),
-                    get_create_patient_tool(),
-                ]
+                tools = tool_registry.get_all_tools()
                 self.logger.info(
                     f"📨 Returning tools: {[tool.model_dump() for tool in tools]}"
                 )
@@ -594,10 +375,8 @@ class DigiCareMCPServer:
             elif method == "tools/call":
                 tool_name = params.get("name")
                 arguments = params.get("arguments", {})
-
-                # Handle tool calls directly
-                if tool_name == "patient-db":
-                    result = await handle_patient_db(arguments)
+                try:
+                    result = await tool_registry.call_tool(tool_name, arguments)
                     return {
                         "jsonrpc": "2.0",
                         "result": {
@@ -605,30 +384,12 @@ class DigiCareMCPServer:
                         },
                         "id": request_id,
                     }
-                elif tool_name == "patient-list":
-                    result = await handle_patient_list(arguments)
-                    return {
-                        "jsonrpc": "2.0",
-                        "result": {
-                            "content": [content.model_dump() for content in result]
-                        },
-                        "id": request_id,
-                    }
-                elif tool_name == "create-patient":
-                    result = await handle_create_patient(arguments)
-                    return {
-                        "jsonrpc": "2.0",
-                        "result": {
-                            "content": [content.model_dump() for content in result]
-                        },
-                        "id": request_id,
-                    }
-                else:
+                except ValueError as e:
                     return {
                         "jsonrpc": "2.0",
                         "error": {
                             "code": -32602,
-                            "message": f"Unknown tool: {tool_name}",
+                            "message": str(e),
                         },
                         "id": request_id,
                     }

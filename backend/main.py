@@ -13,6 +13,9 @@ from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from middleware.rate_limiter import RateLimitMiddleware, create_rate_limiter
 from pydantic import BaseModel, field_validator
+from model.auth import LoginRequest, LoginResponse
+from model.chat import ChatRequest, ChatResponse, ConversationDataModel
+from model.prompts import PromptResponse, PromptUpdateRequest, PromptCreateRequest
 from typing import List
 # JWT functionality now handled by auth module
 from dotenv import load_dotenv
@@ -34,6 +37,7 @@ from api.nhs_terminology_api import router as nhs_router
 from api.voice import router as voice_router
 from api.medical_intelligence import router as medical_intelligence_router
 from api.model_selection import router as model_selection_router
+from api.auth import router as auth_router
 from services.medical_observability import init_medical_observability
 
 logger = logging.getLogger(__name__)
@@ -46,69 +50,7 @@ if not os.getenv('RAILWAY_ENVIRONMENT_NAME'):
 # JWT settings
 # Authentication handled by auth.py module
 
-# Pydantic models
-class LoginRequest(BaseModel):
-    username: str
-    password: str
 
-class LoginResponse(BaseModel):
-    access_token: str
-    token_type: str
-    username: str
-
-class ChatRequest(BaseModel):
-    message: str
-    conversation_id: Optional[str] = None
-    
-    # Validation for message content
-    @field_validator('message')
-    @classmethod
-    def validate_message(cls, v):
-        if not v or not v.strip():
-            raise ValueError('Message cannot be empty')
-        if len(v) > 5000:  # Reasonable message length limit
-            raise ValueError('Message too long (max 5000 characters)')
-        return v.strip()
-
-class ChatResponse(BaseModel):
-    conversation_id: str
-    response: str
-    timestamp: str
-    error: Optional[str] = None
-    
-# Prompts management models
-class PromptResponse(BaseModel):
-    id: str
-    name: str
-    description: str
-    category: str
-    content: str
-    version: int
-    created_at: str
-    updated_at: str
-    is_active: bool
-
-class PromptUpdateRequest(BaseModel):
-    name: Optional[str] = None
-    description: Optional[str] = None
-    content: Optional[str] = None
-    category: Optional[str] = None
-    is_active: Optional[bool] = None
-
-class PromptCreateRequest(BaseModel):
-    id: str
-    name: str
-    description: str
-    content: str
-    category: str = "custom"
-    is_active: bool = True
-
-class ConversationDataModel(BaseModel):
-    """Validation for conversation data from frontend"""
-    conversation_id: str
-    created_at: str
-    messages: List[dict]
-    metadata: Optional[dict] = None
 
 # User database from environment variables
 # Authentication functions now imported from auth.py module
@@ -130,6 +72,8 @@ app.include_router(voice_router)
 app.include_router(nhs_router)
 app.include_router(medical_intelligence_router)
 app.include_router(model_selection_router)
+app.include_router(auth_router)
+app.include_router(auth_router)
 
 # NHS Service Search endpoints
 @app.get("/api/services/search")
@@ -273,40 +217,7 @@ frontend_dist = os.path.join(project_root, "frontend", "dist")
 logger.info("DigiClinic Phase 2 backend initialization complete")
 logger.info(f"Frontend assets available: {os.path.exists(frontend_dist)}")
 
-# Authentication endpoints
-@app.post("/api/auth/login", response_model=LoginResponse)
-async def login(request: LoginRequest):
-    """Authenticate user and return JWT token."""
-    
-    # Security: No environment variable exposure in logs
-    
-    if not verify_password(request.username, request.password):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": request.username}, expires_delta=access_token_expires
-    )
-    
-    return LoginResponse(
-        access_token=access_token,
-        token_type="bearer",
-        username=request.username
-    )
 
-@app.get("/api/auth/verify")
-async def verify_auth(current_user: str = Depends(verify_token)):
-    """Verify current authentication status."""
-    return {"username": current_user, "authenticated": True}
-
-@app.post("/api/auth/logout")
-async def logout():
-    """Logout endpoint (token invalidation handled client-side)."""
-    return {"message": "Logged out successfully"}
 
 # Chat endpoints
 @app.post("/api/chat/send", response_model=ChatResponse)
