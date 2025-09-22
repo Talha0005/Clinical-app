@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { MedicalHeader } from "./MedicalHeader";
 import { MedicalDisclaimer } from "./MedicalDisclaimer";
 import { ChatMessage } from "./ChatMessage";
@@ -28,6 +28,28 @@ export const DigiClinic = () => {
 
   // Model selection state
   const [currentModel, setCurrentModel] = useState<string>("claude-3-5-sonnet-20241022");
+
+  useEffect(() => {
+    const fetchCurrentModel = async () => {
+      try {
+        const response = await fetch("/api/models/current", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setCurrentModel(data.model);
+        }
+      } catch (error) {
+        console.error("Failed to fetch current model:", error);
+      }
+    };
+
+    if (token) {
+      fetchCurrentModel();
+    }
+  }, [token]);
 
   // Handle model selection
   const handleModelSelect = async (modelId: string) => {

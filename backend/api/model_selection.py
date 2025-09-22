@@ -32,9 +32,9 @@ class ModelSwitchRequest(BaseModel):
     @validator('model_id')
     def validate_model_id(cls, v):
         allowed_models = [
-            'claude-3-opus-20240229',
-            'claude-3-5-sonnet-20241022',
-            'medical-llama-3',
+            'anthropic/claude-3-opus-20240229',
+            'anthropic/claude-3-5-sonnet-20241022',
+            'ollama/medllama2',
             'gpt-4-turbo',
             'gemini-pro'
         ]
@@ -52,9 +52,9 @@ class ModelCompareRequest(BaseModel):
     @validator('models')
     def validate_models(cls, v):
         allowed_models = [
-            'claude-3-opus-20240229',
-            'claude-3-5-sonnet-20241022',
-            'medical-llama-3',
+            'anthropic/claude-3-opus-20240229',
+            'anthropic/claude-3-5-sonnet-20241022',
+            'ollama/medllama2',
             'gpt-4-turbo',
             'gemini-pro'
         ]
@@ -98,9 +98,9 @@ class ModelChatRequest(BaseModel):
         if v is None:
             return v
         allowed_models = [
-            'claude-3-opus-20240229',
-            'claude-3-5-sonnet-20241022',
-            'medical-llama-3',
+            'anthropic/claude-3-opus-20240229',
+            'anthropic/claude-3-5-sonnet-20241022',
+            'ollama/medllama2',
             'gpt-4-turbo',
             'gemini-pro'
         ]
@@ -364,4 +364,22 @@ async def get_model_performance(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get performance metrics: {str(e)}"
+        )
+
+
+@router.get("/current")
+async def get_current_model(
+    current_user: str = Depends(verify_token)
+):
+    """
+    Get the currently selected AI model.
+    """
+    try:
+        abstraction_layer = get_model_abstraction_layer()
+        current_model = abstraction_layer.get_current_model()
+        return {"model": current_model}
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get current model: {str(e)}"
         )

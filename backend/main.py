@@ -126,22 +126,10 @@ app.add_middleware(
 )
 
 # Include API routers
-app.include_router(voice_router, prefix="/api")
-app.include_router(nhs_router, prefix="/api")
-app.include_router(medical_intelligence_router, prefix="/api")
-app.include_router(model_selection_router)
-
-# Add rate limiting middleware if enabled
-if os.getenv("RATE_LIMIT_ENABLED", "true").lower() == "true":
-    rate_limiter = create_rate_limiter()
-    app.add_middleware(RateLimitMiddleware, rate_limiter=rate_limiter)
-    app.state.rate_limiter = rate_limiter
-    logger.info("Rate limiting enabled")
-
-# Include API routes
-app.include_router(nhs_router)
 app.include_router(voice_router)
+app.include_router(nhs_router)
 app.include_router(medical_intelligence_router)
+app.include_router(model_selection_router)
 
 # NHS Service Search endpoints
 @app.get("/api/services/search")

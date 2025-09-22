@@ -3,22 +3,22 @@ Multi-Modal Abstraction Layer for DigiClinic
 Allows patients to choose and switch between different AI models dynamically
 """
 
-import os
 import asyncio
-import logging
-from typing import Dict, List, Optional, Any, AsyncIterator
-from dataclasses import dataclass, field
-from enum import Enum
-from datetime import datetime, timedelta
 import json
-import httpx
-from abc import ABC, abstractmethod
-from fastapi import HTTPException
+import logging
+import os
 import time
+from dataclasses import dataclass, field
+from datetime import datetime
+from enum import Enum
+from typing import Dict, List, Optional
+
+from fastapi import HTTPException
 
 # LiteLLM for unified interface
 try:
     import litellm
+
     # Don't set langfuse callback to avoid version conflicts
     # litellm.success_callback = ["langfuse"]
     litellm.set_verbose = True
@@ -26,15 +26,15 @@ except ImportError:
     print("Warning: LiteLLM not installed. Install with: pip install litellm")
 
 # Import existing services
-from .llm_router import DigiClinicLLMRouter, AgentType
 from .medical_observability import MedicalObservabilityClient
 
 
 class ModelProvider(Enum):
     """Available model providers for patient selection."""
-    CLAUDE_OPUS = "claude-3-opus-20240229"
-    CLAUDE_SONNET = "claude-3-5-sonnet-20241022"
-    CLAUDE_HAIKU = "claude-3-haiku-20240307"
+
+    CLAUDE_OPUS = "anthropic/claude-3-opus-20240229"
+    CLAUDE_SONNET = "anthropic/claude-3-5-sonnet-20241022"
+    CLAUDE_HAIKU = "anthropic/claude-3-haiku-20240307"
     GPT4_TURBO = "gpt-4-turbo-preview"
     GPT4O = "gpt-4o"
     GPT35_TURBO = "gpt-3.5-turbo"
@@ -42,13 +42,14 @@ class ModelProvider(Enum):
     GEMINI_FLASH = "gemini-1.5-flash"
     LLAMA3_70B = "llama-3-70b"
     MISTRAL_LARGE = "mistral-large-latest"
-    MEDICAL_LLAMA = "medical-llama-3"  # Specialized medical model
+    MEDICAL_LLAMA = "ollama/medllama2"  # Specialized medical model
     LOCAL_LLAMA = "local/llama3"  # For privacy-conscious patients
 
 
 @dataclass
 class ModelCapabilities:
     """Capabilities and characteristics of each model."""
+
     name: str
     provider: str
     context_window: int
@@ -87,7 +88,7 @@ class ModelAbstractionLayer:
             speed_rating=3,
             accuracy_rating=5,
             languages=["en", "es", "fr", "de", "it", "pt", "ru", "ja", "ko", "zh"],
-            specialties=["complex_reasoning", "medical_diagnosis", "research"]
+            specialties=["complex_reasoning", "medical_diagnosis", "research"],
         ),
         ModelProvider.CLAUDE_SONNET: ModelCapabilities(
             name="Claude Sonnet (Balanced)",
@@ -102,7 +103,7 @@ class ModelAbstractionLayer:
             speed_rating=4,
             accuracy_rating=4,
             languages=["en", "es", "fr", "de", "it", "pt", "ru", "ja", "ko", "zh"],
-            specialties=["general_consultation", "patient_communication"]
+            specialties=["general_consultation", "patient_communication"],
         ),
         ModelProvider.GPT4O: ModelCapabilities(
             name="GPT-4O (Multimodal)",
@@ -117,7 +118,7 @@ class ModelAbstractionLayer:
             speed_rating=4,
             accuracy_rating=5,
             languages=["en", "es", "fr", "de", "it", "pt", "ru", "ja", "ko", "zh"],
-            specialties=["vision_analysis", "medical_imaging", "general_consultation"]
+            specialties=["vision_analysis", "medical_imaging", "general_consultation"],
         ),
         ModelProvider.GEMINI_PRO: ModelCapabilities(
             name="Gemini Pro (Google)",
@@ -132,7 +133,7 @@ class ModelAbstractionLayer:
             speed_rating=5,
             accuracy_rating=4,
             languages=["en", "es", "fr", "de", "it", "pt", "ru", "ja", "ko", "zh"],
-            specialties=["long_context", "research", "multimodal"]
+            specialties=["long_context", "research", "multimodal"],
         ),
         ModelProvider.MEDICAL_LLAMA: ModelCapabilities(
             name="Medical Llama (Specialized)",
@@ -147,13 +148,22 @@ class ModelAbstractionLayer:
             speed_rating=3,
             accuracy_rating=4,
             languages=["en"],
-            specialties=["medical_diagnosis", "clinical_guidelines", "drug_interactions"]
-        )
+            specialties=[
+                "medical_diagnosis",
+                "clinical_guidelines",
+                "drug_interactions",
+            ],
+        ),
     }
 
     def __init__(self):
         """Initialize the abstraction layer with all available models."""
-        self.current_model = ModelProvider.CLAUDE_SONNET  # Default
+        try:
+            with open("backend/dat/current_model.json", "r") as f:
+                data = json.load(f)
+                self.current_model = ModelProvider(data["model"])
+        except (FileNotFoundError, KeyError):
+            self.current_model = ModelProvider.CLAUDE_SONNET
 
         # Memory management configuration
         self.MAX_CONVERSATIONS = 1000
@@ -179,7 +189,7 @@ class ModelAbstractionLayer:
             self.observability = MedicalObservabilityClient(
                 langfuse_public_key=langfuse_public,
                 langfuse_secret_key=langfuse_secret,
-                langfuse_host=langfuse_host
+                langfuse_host=langfuse_host,
             )
             self.langfuse = self.observability.langfuse
         else:
@@ -199,14 +209,18 @@ class ModelAbstractionLayer:
 
         # Validate that we have at least one API key for model access
         if not any([self.anthropic_key, self.openai_key, self.google_key]):
-            self.logger.warning("No API keys found for any AI providers. Medical models may not work properly.")
+            self.logger.warning(
+                "No API keys found for any AI providers. Medical models may not work properly."
+            )
 
         # Set up LiteLLM with available keys (don't expose keys directly)
         if self.anthropic_key:
             os.environ["ANTHROPIC_API_KEY"] = self.anthropic_key
             self.logger.info("✅ Anthropic API key configured")
         else:
-            self.logger.warning("❌ No Anthropic API key found - Claude models unavailable")
+            self.logger.warning(
+                "❌ No Anthropic API key found - Claude models unavailable"
+            )
 
         if self.openai_key:
             os.environ["OPENAI_API_KEY"] = self.openai_key
@@ -220,7 +234,9 @@ class ModelAbstractionLayer:
         else:
             self.logger.info("ℹ️ No Google API key found - Gemini models unavailable")
 
-    async def get_available_models(self, patient_preferences: Dict = None) -> List[Dict]:
+    async def get_available_models(
+        self, patient_preferences: Dict = None
+    ) -> List[Dict]:
         """
         Get list of available models based on patient preferences.
 
@@ -237,21 +253,35 @@ class ModelAbstractionLayer:
 
             # Filter based on patient preferences
             if patient_preferences:
-                if patient_preferences.get("privacy_required") and capabilities.privacy_level != "local":
+                if (
+                    patient_preferences.get("privacy_required")
+                    and capabilities.privacy_level != "local"
+                ):
                     continue
-                if patient_preferences.get("needs_vision") and not capabilities.supports_vision:
+                if (
+                    patient_preferences.get("needs_vision")
+                    and not capabilities.supports_vision
+                ):
                     continue
-                if patient_preferences.get("language") and patient_preferences["language"] not in capabilities.languages:
+                if (
+                    patient_preferences.get("language")
+                    and patient_preferences["language"] not in capabilities.languages
+                ):
                     continue
-                if patient_preferences.get("budget_conscious") and capabilities.cost_per_1k_tokens > 0.005:
+                if (
+                    patient_preferences.get("budget_conscious")
+                    and capabilities.cost_per_1k_tokens > 0.005
+                ):
                     continue
 
-            available.append({
-                "id": model_enum.value,
-                "name": capabilities.name,
-                "capabilities": capabilities.__dict__,
-                "recommended_for": capabilities.specialties
-            })
+            available.append(
+                {
+                    "id": model_enum.value,
+                    "name": capabilities.name,
+                    "capabilities": capabilities.__dict__,
+                    "recommended_for": capabilities.specialties,
+                }
+            )
 
         return available
 
@@ -267,10 +297,9 @@ class ModelAbstractionLayer:
             return True  # Assume local models are available
         return False
 
-    async def switch_model(self,
-                          model_id: str,
-                          conversation_id: str,
-                          reason: Optional[str] = None) -> Dict:
+    async def switch_model(
+        self, model_id: str, conversation_id: str, reason: Optional[str] = None
+    ) -> Dict:
         """
         Switch to a different model mid-conversation.
 
@@ -291,17 +320,18 @@ class ModelAbstractionLayer:
                         "from_model": old_model.value,
                         "to_model": new_model.value,
                         "reason": reason,
-                        "conversation_id": conversation_id
+                        "conversation_id": conversation_id,
                     },
-                    metadata={
-                        "timestamp": datetime.now().isoformat()
-                    }
+                    metadata={"timestamp": datetime.now().isoformat()},
                 )
 
             # Transfer conversation context
             context_summary = await self._summarize_context(conversation_id)
 
             self.current_model = new_model
+
+            with open("backend/dat/current_model.json", "w") as f:
+                json.dump({"model": new_model.value}, f)
 
             # Warm up the new model with context
             await self._warm_up_model(new_model, context_summary)
@@ -311,14 +341,14 @@ class ModelAbstractionLayer:
                 "previous_model": old_model.value,
                 "current_model": new_model.value,
                 "context_transferred": True,
-                "message": f"Successfully switched to {self.MODEL_REGISTRY[new_model].name}"
+                "message": f"Successfully switched to {self.MODEL_REGISTRY[new_model].name}",
             }
 
         except Exception as e:
             return {
                 "success": False,
                 "error": str(e),
-                "message": "Failed to switch model"
+                "message": "Failed to switch model",
             }
 
     async def _summarize_context(self, conversation_id: str) -> str:
@@ -337,8 +367,11 @@ class ModelAbstractionLayer:
 
         response = await litellm.acompletion(
             model="claude-3-haiku-20240307",  # Fast model for summaries
-            messages=[{"role": "system", "content": summary_prompt}],
-            max_tokens=500
+            messages=[
+                {"role": "system", "content": summary_prompt},
+                {"role": "user", "content": "Summarize the above conversation."},
+            ],
+            max_tokens=500,
         )
 
         return response.choices[0].message.content
@@ -356,17 +389,19 @@ class ModelAbstractionLayer:
         await self.process_message(
             message=warm_up_prompt,
             conversation_id="warmup",
-            internal=True  # Don't show to user
+            internal=True,  # Don't show to user
         )
 
-    async def process_message(self,
-                             message: str,
-                             conversation_id: str,
-                             image: Optional[bytes] = None,
-                             audio: Optional[bytes] = None,
-                             model_override: Optional[str] = None,
-                             internal: bool = False,
-                             retry_count: int = 0) -> Dict:
+    async def process_message(
+        self,
+        message: str,
+        conversation_id: str,
+        image: Optional[bytes] = None,
+        audio: Optional[bytes] = None,
+        model_override: Optional[str] = None,
+        internal: bool = False,
+        retry_count: int = 0,
+    ) -> Dict:
         """
         Process a message with the current or specified model.
 
@@ -378,7 +413,10 @@ class ModelAbstractionLayer:
             model_override: Use specific model for this request
             internal: If True, don't store in history or show to user
         """
-        model_to_use = ModelProvider(model_override) if model_override else self.current_model
+        model_to_use = (
+            ModelProvider(model_override) if model_override else self.current_model
+        )
+        self.logger.info(f"Using model: {model_to_use.value}")
         capabilities = self.MODEL_REGISTRY[model_to_use]
 
         # Prepare the message
@@ -397,35 +435,35 @@ class ModelAbstractionLayer:
         model_string = self._get_litellm_model_string(model_to_use)
 
         # Make the API call with Langfuse tracking
-        generation = self.langfuse.generation(
-            name=f"chat_{model_to_use.value}",
-            input=messages,
-            model=model_string,
-            model_parameters={
-                "temperature": 0.7,
-                "max_tokens": 2000,
-                "stream": capabilities.supports_streaming
-            },
-            metadata={
-                "conversation_id": conversation_id,
-                "has_image": bool(image),
-                "has_audio": bool(audio)
-            }
-        ) if self.langfuse else None
+        generation = (
+            self.langfuse.generation(
+                name=f"chat_{model_to_use.value}",
+                input=messages,
+                model=model_string,
+                model_parameters={
+                    "temperature": 0.7,
+                    "max_tokens": 2000,
+                    "stream": capabilities.supports_streaming,
+                },
+                metadata={
+                    "conversation_id": conversation_id,
+                    "has_image": bool(image),
+                    "has_audio": bool(audio),
+                },
+            )
+            if self.langfuse
+            else None
+        )
 
         try:
             # Stream or regular completion based on capabilities
             if capabilities.supports_streaming:
                 response = await self._stream_completion(
-                    model_string,
-                    messages,
-                    generation
+                    model_string, messages, generation
                 )
             else:
                 response = await self._regular_completion(
-                    model_string,
-                    messages,
-                    generation
+                    model_string, messages, generation
                 )
 
             # Track performance metrics
@@ -434,9 +472,7 @@ class ModelAbstractionLayer:
             # Store in history if not internal
             if not internal:
                 self._update_conversation_history(
-                    conversation_id,
-                    message,
-                    response["content"]
+                    conversation_id, message, response["content"]
                 )
 
             return response
@@ -451,7 +487,7 @@ class ModelAbstractionLayer:
                     "error": "connection_error",
                     "error_detail": str(e),
                     "timestamp": datetime.now().isoformat(),
-                    "conversation_id": conversation_id
+                    "conversation_id": conversation_id,
                 }
             raise
 
@@ -465,7 +501,7 @@ class ModelAbstractionLayer:
                     "error": "validation_error",
                     "error_detail": str(e),
                     "timestamp": datetime.now().isoformat(),
-                    "conversation_id": conversation_id
+                    "conversation_id": conversation_id,
                 }
             raise
 
@@ -479,7 +515,7 @@ class ModelAbstractionLayer:
                     "error": "timeout_error",
                     "error_detail": str(e),
                     "timestamp": datetime.now().isoformat(),
-                    "conversation_id": conversation_id
+                    "conversation_id": conversation_id,
                 }
             raise
 
@@ -491,7 +527,9 @@ class ModelAbstractionLayer:
                 fallback_model = self._get_fallback_model(model_to_use)
                 # Don't retry if fallback is the same as current model
                 if fallback_model != model_to_use:
-                    self.logger.warning(f"Model {model_to_use.value} failed, falling back to {fallback_model.value}. Retry {retry_count + 1}/{MAX_RETRIES}")
+                    self.logger.warning(
+                        f"Model {model_to_use.value} failed, falling back to {fallback_model.value}. Retry {retry_count + 1}/{MAX_RETRIES}"
+                    )
                     return await self.process_message(
                         message=message,
                         conversation_id=conversation_id,
@@ -499,11 +537,13 @@ class ModelAbstractionLayer:
                         audio=audio,
                         model_override=fallback_model.value,
                         internal=internal,
-                        retry_count=retry_count + 1
+                        retry_count=retry_count + 1,
                     )
 
             # Log error and provide medical-appropriate fallback
-            self.logger.error(f"All model fallbacks exhausted after {retry_count} retries. Final error: {str(e)}")
+            self.logger.error(
+                f"All model fallbacks exhausted after {retry_count} retries. Final error: {str(e)}"
+            )
 
             if not internal:
                 # For medical safety, provide appropriate emergency guidance
@@ -514,22 +554,22 @@ class ModelAbstractionLayer:
                     "error": "system_error",
                     "error_detail": str(e),
                     "timestamp": datetime.now().isoformat(),
-                    "conversation_id": conversation_id
+                    "conversation_id": conversation_id,
                 }
 
             # For internal calls, re-raise the exception
             raise HTTPException(
                 status_code=503,
-                detail="AI service temporarily unavailable. Please try again later."
+                detail="AI service temporarily unavailable. Please try again later.",
             )
 
     def _get_litellm_model_string(self, model: ModelProvider) -> str:
         """Convert our model enum to LiteLLM model string."""
         # Direct mappings for LiteLLM
         mappings = {
-            ModelProvider.CLAUDE_OPUS: "claude-3-opus-20240229",
-            ModelProvider.CLAUDE_SONNET: "claude-3-5-sonnet-20241022",
-            ModelProvider.CLAUDE_HAIKU: "claude-3-haiku-20240307",
+            ModelProvider.CLAUDE_OPUS: "anthropic/claude-3-opus-20240229",
+            ModelProvider.CLAUDE_SONNET: "anthropic/claude-3-5-sonnet-20241022",
+            ModelProvider.CLAUDE_HAIKU: "anthropic/claude-3-haiku-20240307",
             ModelProvider.GPT4_TURBO: "gpt-4-turbo-preview",
             ModelProvider.GPT4O: "gpt-4o",
             ModelProvider.GPT35_TURBO: "gpt-3.5-turbo",
@@ -537,15 +577,14 @@ class ModelAbstractionLayer:
             ModelProvider.GEMINI_FLASH: "gemini/gemini-1.5-flash",
             ModelProvider.LLAMA3_70B: "together_ai/meta-llama/Llama-3-70b-chat-hf",
             ModelProvider.MISTRAL_LARGE: "mistral/mistral-large-latest",
-            ModelProvider.MEDICAL_LLAMA: "ollama/medical-llama",
-            ModelProvider.LOCAL_LLAMA: "ollama/llama3"
+            ModelProvider.MEDICAL_LLAMA: "ollama/medllama2",
+            ModelProvider.LOCAL_LLAMA: "ollama/llama3",
         }
         return mappings.get(model, "claude-3-5-sonnet-20241022")
 
-    async def _stream_completion(self,
-                                model: str,
-                                messages: List[Dict],
-                                generation) -> Dict:
+    async def _stream_completion(
+        self, model: str, messages: List[Dict], generation
+    ) -> Dict:
         """Handle streaming completion."""
         full_response = ""
 
@@ -554,7 +593,7 @@ class ModelAbstractionLayer:
             messages=messages,
             stream=True,
             temperature=0.7,
-            max_tokens=2000
+            max_tokens=2000,
         ):
             if chunk.choices[0].delta.content:
                 full_response += chunk.choices[0].delta.content
@@ -563,22 +602,14 @@ class ModelAbstractionLayer:
         if generation:
             generation.end(output=full_response)
 
-        return {
-            "content": full_response,
-            "model": model,
-            "streamed": True
-        }
+        return {"content": full_response, "model": model, "streamed": True}
 
-    async def _regular_completion(self,
-                                 model: str,
-                                 messages: List[Dict],
-                                 generation) -> Dict:
+    async def _regular_completion(
+        self, model: str, messages: List[Dict], generation
+    ) -> Dict:
         """Handle regular (non-streaming) completion."""
         response = await litellm.acompletion(
-            model=model,
-            messages=messages,
-            temperature=0.7,
-            max_tokens=2000
+            model=model, messages=messages, temperature=0.7, max_tokens=2000
         )
 
         content = response.choices[0].message.content
@@ -586,16 +617,11 @@ class ModelAbstractionLayer:
         if generation:
             generation.end(output=content)
 
-        return {
-            "content": content,
-            "model": model,
-            "streamed": False
-        }
+        return {"content": content, "model": model, "streamed": False}
 
-    def _prepare_messages(self,
-                         conversation_id: str,
-                         message: str,
-                         include_history: bool) -> List[Dict]:
+    def _prepare_messages(
+        self, conversation_id: str, message: str, include_history: bool
+    ) -> List[Dict]:
         """Prepare messages for the model."""
         messages = []
 
@@ -605,7 +631,9 @@ class ModelAbstractionLayer:
 
         # Add conversation history if needed
         if include_history and conversation_id in self.conversation_history:
-            for msg in self.conversation_history[conversation_id][-10:]:  # Last 10 messages
+            for msg in self.conversation_history[conversation_id][
+                -10:
+            ]:  # Last 10 messages
                 messages.append(msg)
 
         # Add current message
@@ -635,17 +663,15 @@ class ModelAbstractionLayer:
         import base64
 
         # Encode image to base64
-        image_base64 = base64.b64encode(image).decode('utf-8')
+        image_base64 = base64.b64encode(image).decode("utf-8")
 
         # Add to last user message
         messages[-1]["content"] = [
             {"type": "text", "text": messages[-1]["content"]},
             {
                 "type": "image_url",
-                "image_url": {
-                    "url": f"data:image/jpeg;base64,{image_base64}"
-                }
-            }
+                "image_url": {"url": f"data:image/jpeg;base64,{image_base64}"},
+            },
         ]
 
         return messages
@@ -659,6 +685,7 @@ class ModelAbstractionLayer:
 
         # Save audio temporarily
         import tempfile
+
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
             tmp.write(audio)
             tmp_path = tmp.name
@@ -678,17 +705,16 @@ class ModelAbstractionLayer:
                 "total_requests": 0,
                 "total_tokens": 0,
                 "errors": 0,
-                "average_latency": 0
+                "average_latency": 0,
             }
 
         metrics = self.model_performance_metrics[model]
         metrics["total_requests"] += 1
         # Add more metrics as needed
 
-    def _update_conversation_history(self,
-                                    conversation_id: str,
-                                    user_message: str,
-                                    assistant_message: str):
+    def _update_conversation_history(
+        self, conversation_id: str, user_message: str, assistant_message: str
+    ):
         """Update conversation history with memory management."""
         # Clean up expired conversations before adding new ones
         self._cleanup_expired_conversations()
@@ -704,7 +730,7 @@ class ModelAbstractionLayer:
             self.conversation_history[conversation_id] = []
             self.conversation_metadata[conversation_id] = {
                 "created": current_time,
-                "last_accessed": current_time
+                "last_accessed": current_time,
             }
 
         # Update last accessed time
@@ -719,7 +745,9 @@ class ModelAbstractionLayer:
         if len(conversation) > self.MAX_MESSAGES_PER_CONVERSATION:
             # Remove oldest messages but keep system messages
             messages_to_remove = len(conversation) - self.MAX_MESSAGES_PER_CONVERSATION
-            self.conversation_history[conversation_id] = conversation[messages_to_remove:]
+            self.conversation_history[conversation_id] = conversation[
+                messages_to_remove:
+            ]
 
     def _cleanup_expired_conversations(self):
         """Remove conversations older than TTL."""
@@ -744,7 +772,7 @@ class ModelAbstractionLayer:
         # Find conversation with oldest last_accessed time
         oldest_conv_id = min(
             self.conversation_metadata.keys(),
-            key=lambda x: self.conversation_metadata[x]["last_accessed"]
+            key=lambda x: self.conversation_metadata[x]["last_accessed"],
         )
 
         del self.conversation_history[oldest_conv_id]
@@ -763,10 +791,9 @@ class ModelAbstractionLayer:
 
         return fallback_chain.get(failed_model, ModelProvider.CLAUDE_HAIKU)
 
-    async def compare_models(self,
-                            message: str,
-                            models: List[str],
-                            conversation_id: str) -> Dict:
+    async def compare_models(
+        self, message: str, models: List[str], conversation_id: str
+    ) -> Dict:
         """
         Compare responses from multiple models side-by-side.
         Useful for patients to see different perspectives.
@@ -780,7 +807,7 @@ class ModelAbstractionLayer:
                 message=message,
                 conversation_id=f"{conversation_id}_compare_{model_id}",
                 model_override=model_id,
-                internal=True
+                internal=True,
             )
             tasks.append(task)
 
@@ -788,22 +815,17 @@ class ModelAbstractionLayer:
 
         for model_id, response in zip(models, responses):
             if isinstance(response, Exception):
-                comparisons[model_id] = {
-                    "error": str(response),
-                    "success": False
-                }
+                comparisons[model_id] = {"error": str(response), "success": False}
             else:
                 comparisons[model_id] = {
                     "response": response["content"],
                     "success": True,
-                    "model_info": self.MODEL_REGISTRY[ModelProvider(model_id)].__dict__
+                    "model_info": self.MODEL_REGISTRY[ModelProvider(model_id)].__dict__,
                 }
 
         return comparisons
 
-    async def get_model_recommendation(self,
-                                      use_case: str,
-                                      requirements: Dict) -> str:
+    async def get_model_recommendation(self, use_case: str, requirements: Dict) -> str:
         """
         Recommend the best model for a specific use case.
 
@@ -827,13 +849,22 @@ class ModelAbstractionLayer:
             # Score based on requirements
             if requirements.get("needs_vision") and capabilities.supports_vision:
                 score += 3
-            if requirements.get("privacy_required") and capabilities.privacy_level == "local":
+            if (
+                requirements.get("privacy_required")
+                and capabilities.privacy_level == "local"
+            ):
                 score += 4
             if requirements.get("speed_priority") and capabilities.speed_rating >= 4:
                 score += 2
-            if requirements.get("accuracy_priority") and capabilities.accuracy_rating >= 4:
+            if (
+                requirements.get("accuracy_priority")
+                and capabilities.accuracy_rating >= 4
+            ):
                 score += 3
-            if requirements.get("budget_conscious") and capabilities.cost_per_1k_tokens < 0.005:
+            if (
+                requirements.get("budget_conscious")
+                and capabilities.cost_per_1k_tokens < 0.005
+            ):
                 score += 2
 
             recommendations.append((model_enum, score))
@@ -845,9 +876,14 @@ class ModelAbstractionLayer:
             return recommendations[0][0].value
         return ModelProvider.CLAUDE_SONNET.value  # Default
 
+    def get_current_model(self) -> str:
+        """Get the current model."""
+        return self.current_model.value
+
 
 # Singleton instance
 _abstraction_layer = None
+
 
 def get_model_abstraction_layer() -> ModelAbstractionLayer:
     """Get or create the model abstraction layer singleton."""

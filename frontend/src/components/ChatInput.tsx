@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Send, Mic, MicOff, Loader2, Camera, Upload, Settings, ChevronDown, ChevronUp, Brain } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -43,12 +43,22 @@ export const ChatInput = ({
     clearResult
   } = useImageCapture();
 
-  // Update message with transcription
+  const wasTranscribing = useRef(isTranscribing);
+
+  // Update message with transcription and send when done
   useEffect(() => {
     if (transcription) {
       setMessage(transcription);
     }
-  }, [transcription]);
+
+    if (wasTranscribing.current && !isTranscribing && transcription) {
+      onSendMessage(transcription);
+      setMessage('');
+      clearTranscription();
+    }
+
+    wasTranscribing.current = isTranscribing;
+  }, [isTranscribing, transcription, onSendMessage, clearTranscription]);
 
   // Update message with image analysis result
   useEffect(() => {
@@ -220,10 +230,10 @@ Recommendations: ${imageResult.recommendations.join(', ')}`;
               <CardContent className="pt-0">
                 <div className="grid gap-3">
                   <Button
-                    variant={currentModel === "claude-3-opus-20240229" ? "default" : "outline"}
+                    variant={currentModel === "anthropic/claude-3-opus-20240229" ? "default" : "outline"}
                     className="w-full justify-start h-auto p-4"
                     onClick={() => {
-                      onModelSelect("claude-3-opus-20240229");
+                      onModelSelect("anthropic/claude-3-opus-20240229");
                       setShowModelSelector(false);
                     }}
                   >
@@ -234,10 +244,10 @@ Recommendations: ${imageResult.recommendations.join(', ')}`;
                   </Button>
 
                   <Button
-                    variant={currentModel === "claude-3-5-sonnet-20241022" ? "default" : "outline"}
+                    variant={currentModel === "anthropic/claude-3-5-sonnet-20241022" ? "default" : "outline"}
                     className="w-full justify-start h-auto p-4"
                     onClick={() => {
-                      onModelSelect("claude-3-5-sonnet-20241022");
+                      onModelSelect("anthropic/claude-3-5-sonnet-20241022");
                       setShowModelSelector(false);
                     }}
                   >
@@ -248,10 +258,10 @@ Recommendations: ${imageResult.recommendations.join(', ')}`;
                   </Button>
 
                   <Button
-                    variant={currentModel === "medical-llama-3" ? "default" : "outline"}
+                    variant={currentModel === "ollama/medllama2" ? "default" : "outline"}
                     className="w-full justify-start h-auto p-4"
                     onClick={() => {
-                      onModelSelect("medical-llama-3");
+                      onModelSelect("ollama/medllama2");
                       setShowModelSelector(false);
                     }}
                   >
