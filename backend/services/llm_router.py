@@ -4,16 +4,16 @@ Provides unified LLM interface with dynamic routing and fallback logic.
 """
 
 import os
-import asyncio
 from typing import Dict, List, Optional, AsyncGenerator
 from enum import Enum
 import logging
 from dataclasses import dataclass
 
-from litellm import Router, completion, acompletion
+from litellm import Router, acompletion
 from langfuse import Langfuse, observe
 
 logger = logging.getLogger(__name__)
+
 
 class AgentType(Enum):
     """Agent types for dynamic model routing"""
@@ -24,11 +24,13 @@ class AgentType(Enum):
     SUMMARISATION = "summary"      # Plain English generation
     CODING = "coding"             # SNOMED/ICD coding
 
+
 class ModelTier(Enum):
     """Model performance tiers"""
     FAST = "fast"        # Low-latency, simple tasks
     STANDARD = "standard"  # Balanced performance
     PREMIUM = "premium"    # High-performance, complex tasks
+
 
 @dataclass
 class ModelConfig:
@@ -38,6 +40,7 @@ class ModelConfig:
     tier: ModelTier
     max_tokens: int
     suitable_agents: List[AgentType]
+
 
 class DigiClinicLLMRouter:
     """
@@ -56,31 +59,37 @@ class DigiClinicLLMRouter:
         """Build model configurations with fallback hierarchy"""
         configs = []
         
+    # Resolve Anthropic key from ANTHROPIC_API_KEY or ANTHROPIC_KEY
+        anth_key = os.getenv("ANTHROPIC_API_KEY") or os.getenv("ANTHROPIC_KEY")
+
         # Claude Sonnet - Fast tier for conversational agents
-        if os.getenv("ANTHROPIC_API_KEY"):
+        if anth_key:
             configs.append(ModelConfig(
                 model_name="claude-sonnet",
                 litellm_params={
                     "model": "anthropic/claude-3-5-sonnet-20240620",
-                    "api_key": os.getenv("ANTHROPIC_API_KEY"),
+                    "api_key": anth_key,
                     "max_tokens": 4096
                 },
                 tier=ModelTier.FAST,
                 max_tokens=4096,
                 suitable_agents=[
-                    AgentType.AVATAR, 
+                    AgentType.AVATAR,
                     AgentType.HISTORY_TAKING,
-                    AgentType.SUMMARISATION
+                    AgentType.SUMMARISATION,
+                    # Also allow as fallback for reasoning/triage
+                    AgentType.CLINICAL_REASONING,
+                    AgentType.SYMPTOM_TRIAGE,
                 ]
             ))
 
         # Claude Opus - Premium tier for complex reasoning
-        if os.getenv("ANTHROPIC_API_KEY"):
+        if anth_key:
             configs.append(ModelConfig(
                 model_name="claude-opus",
                 litellm_params={
-                    "model": "anthropic/claude-3-opus-20240229", 
-                    "api_key": os.getenv("ANTHROPIC_API_KEY"),
+                    "model": "anthropic/claude-3-opus-20240229",
+                    "api_key": anth_key,
                     "max_tokens": 8192
                 },
                 tier=ModelTier.PREMIUM,
@@ -92,13 +101,22 @@ class DigiClinicLLMRouter:
                 ]
             ))
 
-        # GPT-4 Fallback (if available)
-        if os.getenv("OPENAI_API_KEY"):
+        # GPT-4/4o Fallback (configurable) if available and not disabled
+        openai_disabled = os.getenv("OPENAI_DISABLED", "false").lower() in (
+            "1",
+            "true",
+            "yes",
+        )
+        openai_key = os.getenv("OPENAI_API_KEY")
+    # Prefer lighter model by default; override via OPENAI_MODEL
+        openai_model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+
+        if openai_key and not openai_disabled:
             configs.append(ModelConfig(
                 model_name="gpt-4",
                 litellm_params={
-                    "model": "gpt-4-turbo-preview",
-                    "api_key": os.getenv("OPENAI_API_KEY"),
+                    "model": openai_model,
+                    "api_key": openai_key,
                     "max_tokens": 4096
                 },
                 tier=ModelTier.STANDARD,
@@ -111,7 +129,10 @@ class DigiClinicLLMRouter:
             ))
 
         if not configs:
-            logger.warning("No LLM API keys found - LLM router will return None to allow fallback to legacy system")
+            logger.warning(
+                "No LLM API keys found - LLM router will return None to allow "
+                "fallback to legacy system"
+            )
             return []
 
         return configs
@@ -128,7 +149,9 @@ class DigiClinicLLMRouter:
             
             # If no specific models, use all available as fallback
             if not suitable_models:
-                suitable_models = [config.model_name for config in self.model_configs]
+                suitable_models = [
+                    config.model_name for config in self.model_configs
+                ]
                 
             mapping[agent] = suitable_models
             
@@ -153,7 +176,9 @@ class DigiClinicLLMRouter:
                 ],
                 set_verbose=True
             )
-            logger.info(f"LiteLLM router initialized with {len(model_list)} models")
+            logger.info(
+                "LiteLLM router initialized with %d models", len(model_list)
+            )
             
         except Exception as e:
             logger.error(f"Failed to initialize LiteLLM router: {e}")
@@ -162,62 +187,128 @@ class DigiClinicLLMRouter:
     def _initialize_langfuse(self):
         """Initialize Langfuse for observability"""
         try:
-            if os.getenv("LANGFUSE_PUBLIC_KEY") and os.getenv("LANGFUSE_SECRET_KEY"):
+            if os.getenv("LANGFUSE_PUBLIC_KEY") and os.getenv(
+                "LANGFUSE_SECRET_KEY"
+            ):
                 self.langfuse = Langfuse(
                     public_key=os.getenv("LANGFUSE_PUBLIC_KEY"),
                     secret_key=os.getenv("LANGFUSE_SECRET_KEY"),
-                    host=os.getenv("LANGFUSE_HOST", "https://cloud.langfuse.com")
+                    host=os.getenv(
+                        "LANGFUSE_HOST", "https://cloud.langfuse.com"
+                    )
                 )
                 logger.info("Langfuse observability initialized")
             else:
-                logger.warning("Langfuse keys not found - observability disabled")
+                logger.warning(
+                    "Langfuse keys not found - observability disabled"
+                )
                 
         except Exception as e:
             logger.error(f"Failed to initialize Langfuse: {e}")
             self.langfuse = None
 
-    def get_optimal_model(self, agent_type: AgentType, complexity_hint: Optional[str] = None) -> str:
+    def get_optimal_model(
+        self,
+        agent_type: AgentType,
+        complexity_hint: Optional[str] = None,
+    ) -> str:
         """
         Get optimal model for agent type with complexity hints
         
         Args:
             agent_type: The requesting agent type
-            complexity_hint: "simple", "standard", "complex" to influence routing
+            complexity_hint: "simple" | "standard" | "complex" to influence routing
             
-        Returns:
-            Model name to use
+        Returns: Model name to use
         """
         available_models = self.agent_model_mapping.get(agent_type, [])
         
         if not available_models:
             logger.warning(f"No models available for agent {agent_type}")
-            return self.model_configs[0].model_name if self.model_configs else "claude-sonnet"
+            return (
+                self.model_configs[0].model_name
+                if self.model_configs
+                else "claude-sonnet"
+            )
 
         # Route based on complexity hint
         if complexity_hint == "complex":
             # Prefer premium tier models
             for config in self.model_configs:
-                if config.tier == ModelTier.PREMIUM and config.model_name in available_models:
+                if (
+                    config.tier == ModelTier.PREMIUM
+                    and config.model_name in available_models
+                ):
                     return config.model_name
                     
         elif complexity_hint == "simple":
             # Prefer fast tier models
             for config in self.model_configs:
-                if config.tier == ModelTier.FAST and config.model_name in available_models:
+                if (
+                    config.tier == ModelTier.FAST
+                    and config.model_name in available_models
+                ):
                     return config.model_name
 
         # Default to first available model
         return available_models[0]
 
+    async def route_request(
+        self,
+        messages: List[Dict],
+        agent_type: AgentType,
+        session_id: str = "default",
+        user_id: str = "demo_user",
+        complexity_hint: Optional[str] = None,
+        **kwargs,
+    ) -> str:
+        """Backward-compatible helper that returns only the content string.
+
+    Many existing services expect a plain string from the router.
+    This delegates to generate_response and extracts the content,
+    falling back to a safe message on errors or when the router
+    isn't initialized.
+        """
+        try:
+            if not self.router:
+                logger.info(
+                    "LLM router not initialized; returning safe fallback"
+                )
+                return (
+                    "I'm experiencing technical difficulties. Please try again."
+                )
+
+            result = await self.generate_response(
+                messages=messages,
+                agent_type=agent_type,
+                session_id=session_id,
+                user_id=user_id,
+                complexity_hint=complexity_hint,
+                **kwargs,
+            )
+
+            if isinstance(result, dict) and result.get("content"):
+                return str(result["content"])  # content as string
+
+            # If None or missing content, return safe fallback
+            return (
+                "I'm experiencing technical difficulties. "
+                "Please try again."
+            )
+
+        except Exception as e:
+            logger.error(f"route_request failed: {e}")
+            return "I'm experiencing technical difficulties. Please try again."
+
     @observe()
     async def generate_response(
-        self, 
-        messages: List[Dict], 
+        self,
+        messages: List[Dict],
         agent_type: AgentType,
         session_id: str,
         user_id: str = "demo_user",
         complexity_hint: Optional[str] = None,
-        **kwargs
+        **kwargs,
     ) -> Dict:
         """
         Generate LLM response with observability tracing
@@ -235,14 +326,13 @@ class DigiClinicLLMRouter:
         """
         
         # Create Langfuse trace
-        trace = None
         if self.langfuse:
             try:
-                trace = self.langfuse.trace(
+                self.langfuse.trace(
                     name=f"{agent_type.value}_llm_call",
                     session_id=session_id,
                     user_id=user_id,
-                    tags=[agent_type.value, complexity_hint or "standard"]
+                    tags=[agent_type.value, complexity_hint or "standard"],
                 )
             except Exception as e:
                 logger.warning(f"Failed to create Langfuse trace: {e}")
@@ -251,46 +341,102 @@ class DigiClinicLLMRouter:
         model_name = self.get_optimal_model(agent_type, complexity_hint)
         
         try:
-            # If no router available (no API keys), return None to signal fallback needed
+            # If no router available (no API keys), signal fallback needed
             if not self.router:
-                logger.info(f"LLM router not available - returning None to trigger fallback")
-                return None
+                logger.info("LLM router not available - using fallback")
+                return {"content": None}
 
-            # Make LLM call through router
-            response = await acompletion(
-                model=model_name,
-                messages=messages,
-                router=self.router,
-                **kwargs
-            )
+            async def _try_model(target_model: str):
+                return await acompletion(
+                    model=target_model,
+                    messages=messages,
+                    router=self.router,
+                    **kwargs
+                )
 
-            result = {
-                "content": response.choices[0].message.content,
-                "model_used": model_name,
-                "agent_type": agent_type.value,
-                "usage": {
-                    "prompt_tokens": response.usage.prompt_tokens,
-                    "completion_tokens": response.usage.completion_tokens,
-                    "total_tokens": response.usage.total_tokens
+            # Primary attempt
+            try:
+                response = await _try_model(model_name)
+                result = {
+                    "content": response.choices[0].message.content,
+                    "model_used": model_name,
+                    "agent_type": agent_type.value,
+                    "usage": {
+                        "prompt_tokens": response.usage.prompt_tokens,
+                        "completion_tokens": response.usage.completion_tokens,
+                        "total_tokens": response.usage.total_tokens
+                    }
                 }
-            }
+                logger.info("LLM response generated: %s -> %s", agent_type.value, model_name)
+                return result
+            except Exception as e_primary:
+                err_txt = str(e_primary).lower()
+                logger.warning("Primary model failed (%s): %s", model_name, e_primary)
 
-            logger.info(f"LLM response generated: {agent_type.value} -> {model_name}")
-            return result
+                should_fallback = (
+                    "insufficient_quota" in err_txt or
+                    "rate limit" in err_txt or
+                    "429" in err_txt
+                )
 
+                # Build fallback list excluding the failed model
+                fallback_models = [m for m in self.agent_model_mapping.get(agent_type, []) if m != model_name]
+
+                # Prioritize non-OpenAI if OpenAI quota exceeded
+                if should_fallback and model_name.startswith("gpt"):
+                    fallback_models = [m for m in fallback_models if not m.startswith("gpt")] + \
+                                      [m for m in fallback_models if m.startswith("gpt")]
+
+                for alt in fallback_models:
+                    try:
+                        response = await _try_model(alt)
+                        result = {
+                            "content": response.choices[0].message.content,
+                            "model_used": alt,
+                            "agent_type": agent_type.value,
+                            "usage": {
+                                "prompt_tokens": response.usage.prompt_tokens,
+                                "completion_tokens": response.usage.completion_tokens,
+                                "total_tokens": response.usage.total_tokens
+                            }
+                        }
+                        logger.info("Fallback succeeded: %s -> %s", agent_type.value, alt)
+                        return result
+                    except Exception as e_alt:
+                        logger.warning("Fallback model failed (%s): %s", alt, e_alt)
+
+                # If no fallback succeeded, return a clear error but not crash
+                return {
+                    "content": (
+                        "OpenAI quota is exhausted or the selected model is unavailable. "
+                        "I've temporarily disabled that route; please switch to Claude Sonnet or try again later."
+                    ),
+                    "model_used": model_name,
+                    "agent_type": agent_type.value,
+                    "error": str(e_primary),
+                    "usage": {
+                        "prompt_tokens": 0,
+                        "completion_tokens": 0,
+                        "total_tokens": 0,
+                    },
+                }
         except Exception as e:
-            logger.error(f"LLM generation failed for {agent_type.value}: {e}")
-            
-            # Return error response
+            logger.error("generate_response fatal error: %s", e)
             return {
-                "content": f"I apologize, but I'm experiencing technical difficulties. Please try again.",
+                "content": (
+                    "I'm experiencing technical difficulties. Please try again."
+                ),
                 "model_used": model_name,
                 "agent_type": agent_type.value,
                 "error": str(e),
-                "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+                "usage": {
+                    "prompt_tokens": 0,
+                    "completion_tokens": 0,
+                    "total_tokens": 0,
+                },
             }
 
-    @observe() 
+    @observe()
     async def generate_streaming_response(
         self,
         messages: List[Dict],
@@ -305,7 +451,7 @@ class DigiClinicLLMRouter:
         
         Args:
             messages: Conversation messages
-            agent_type: Requesting agent type  
+            agent_type: Requesting agent type
             session_id: Session identifier
             user_id: User identifier
             complexity_hint: Complexity routing hint
@@ -316,14 +462,17 @@ class DigiClinicLLMRouter:
         """
         
         # Create Langfuse trace for streaming
-        trace = None
         if self.langfuse:
             try:
-                trace = self.langfuse.trace(
+                self.langfuse.trace(
                     name=f"{agent_type.value}_streaming_call",
                     session_id=session_id,
                     user_id=user_id,
-                    tags=[agent_type.value, complexity_hint or "standard", "streaming"]
+                    tags=[
+                        agent_type.value,
+                        complexity_hint or "standard",
+                        "streaming",
+                    ],
                 )
             except Exception as e:
                 logger.warning(f"Failed to create Langfuse trace: {e}")
@@ -335,46 +484,66 @@ class DigiClinicLLMRouter:
             if not self.router:
                 raise Exception("LiteLLM router not initialized")
 
-            # Start streaming generation
-            yield {"type": "start", "model": model_name, "agent": agent_type.value}
+            async def _stream_with_model(target_model: str):
+                return await acompletion(
+                    model=target_model,
+                    messages=messages,
+                    router=self.router,
+                    stream=True,
+                    **kwargs
+                )
 
-            response_stream = await acompletion(
-                model=model_name,
-                messages=messages,
-                router=self.router,
-                stream=True,
-                **kwargs
-            )
+            chosen_model = model_name
+
+            # Try to start stream; if startup fails with OpenAI quota, fallback to Anthropic
+            try:
+                response_stream = await _stream_with_model(chosen_model)
+            except Exception as e_primary:
+                err_txt = str(e_primary).lower()
+                logger.warning("Streaming start failed for %s: %s", chosen_model, e_primary)
+                should_fallback = (
+                    "insufficient_quota" in err_txt or
+                    "rate limit" in err_txt or
+                    "429" in err_txt
+                )
+                if should_fallback and chosen_model.startswith("gpt"):
+                    fallback_models = [m for m in self.agent_model_mapping.get(agent_type, []) if m != chosen_model]
+                    # Prefer non-OpenAI first
+                    ordered = (
+                        [m for m in fallback_models if not m.startswith("gpt")] +
+                        [m for m in fallback_models if m.startswith("gpt")]
+                    )
+                    response_stream = None
+                    for alt in ordered:
+                        try:
+                            response_stream = await _stream_with_model(alt)
+                            chosen_model = alt
+                            logger.info("Streaming fallback succeeded -> %s", alt)
+                            break
+                        except Exception as e_alt:
+                            logger.warning("Streaming fallback failed for %s: %s", alt, e_alt)
+                    if response_stream is None:
+                        raise e_primary
+                else:
+                    raise e_primary
+
+            # Start streaming generation
+            yield {"type": "start", "model": chosen_model, "agent": agent_type.value}
 
             full_content = ""
             async for chunk in response_stream:
-                if chunk.choices[0].delta.content:
+                if chunk.choices and chunk.choices[0].delta and chunk.choices[0].delta.content:
                     content = chunk.choices[0].delta.content
                     full_content += content
-                    yield {
-                        "type": "content", 
-                        "text": content,
-                        "model": model_name
-                    }
+                    yield {"type": "content", "text": content, "model": chosen_model}
 
             # End streaming
-            yield {
-                "type": "complete",
-                "full_content": full_content,
-                "model": model_name,
-                "agent": agent_type.value
-            }
-
-            logger.info(f"Streaming response completed: {agent_type.value} -> {model_name}")
+            yield {"type": "complete", "full_content": full_content, "model": chosen_model, "agent": agent_type.value}
+            logger.info("Streaming response completed: %s -> %s", agent_type.value, chosen_model)
 
         except Exception as e:
-            logger.error(f"Streaming generation failed for {agent_type.value}: {e}")
-            yield {
-                "type": "error",
-                "error": str(e),
-                "model": model_name,
-                "agent": agent_type.value
-            }
+            logger.error("Streaming generation failed for %s: %s", agent_type.value, e)
+            yield {"type": "error", "error": str(e), "model": model_name, "agent": agent_type.value}
 
     async def health_check(self) -> Dict:
         """Check health of all configured models"""
@@ -387,9 +556,14 @@ class DigiClinicLLMRouter:
         for config in self.model_configs:
             try:
                 # Simple test call
-                test_response = await acompletion(
+                await acompletion(
                     model=config.model_name,
-                    messages=[{"role": "user", "content": "Say 'OK' if you can respond."}],
+                    messages=[
+                        {
+                            "role": "user",
+                            "content": "Say 'OK' if you can respond.",
+                        }
+                    ],
                     router=self.router,
                     max_tokens=10
                 )
@@ -397,12 +571,14 @@ class DigiClinicLLMRouter:
                 health_status["models"][config.model_name] = {
                     "status": "healthy",
                     "tier": config.tier.value,
-                    "suitable_agents": [agent.value for agent in config.suitable_agents]
+                    "suitable_agents": [
+                        agent.value for agent in config.suitable_agents
+                    ]
                 }
                 
             except Exception as e:
                 health_status["models"][config.model_name] = {
-                    "status": "unhealthy", 
+                    "status": "unhealthy",
                     "error": str(e),
                     "tier": config.tier.value
                 }

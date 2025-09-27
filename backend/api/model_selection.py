@@ -5,11 +5,14 @@ API endpoints for model selection and switching
 from fastapi import APIRouter, HTTPException, Depends, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, validator
-from typing import List, Optional, Dict, Any
+from typing import Optional, List
 import json
 
-from auth import verify_token
-from services.model_abstraction_layer import get_model_abstraction_layer, ModelProvider
+from auth import verify_token as verify_jwt_token
+from services.model_abstraction_layer import (
+    get_model_abstraction_layer,
+    ModelProvider,
+)
 
 router = APIRouter(prefix="/api/models", tags=["Model Selection"])
 
@@ -23,93 +26,173 @@ class ModelListRequest(BaseModel):
     medical_specialized: Optional[bool] = False
 
 
+# Backward-compatible aliases to accept legacy model IDs from older frontends
+LEGACY_MODEL_ALIASES = {
+    # OpenAI
+    "gpt-4o": "openai/gpt-4o-2024-08-06",
+    "gpt4o": "openai/gpt-4o-2024-08-06",
+    # Gemini
+    "gemini/gemini-1.5-pro": "gemini/gemini-1.5-pro-002",
+    "gemini/gemini-1.5-flash": "gemini/gemini-1.5-flash-002",
+}
+
+
 class ModelSwitchRequest(BaseModel):
     """Request for switching models."""
-    model_id: str = Field(..., min_length=1, max_length=100, description="Target model identifier")
-    conversation_id: str = Field(..., min_length=1, max_length=100, description="Conversation identifier")
-    reason: Optional[str] = Field(None, max_length=500, description="Reason for model switch")
+    model_id: str = Field(
+        ..., min_length=1, max_length=100,
+        description="Target model identifier"
+    )
+    conversation_id: str = Field(
+        ..., min_length=1, max_length=100,
+        description="Conversation identifier"
+    )
+    reason: Optional[str] = Field(
+        None, max_length=500,
+        description="Reason for model switch"
+    )
 
-    @validator('model_id')
+    @validator('model_id', pre=True)
     def validate_model_id(cls, v):
+        # Map legacy identifiers to the canonical LiteLLM IDs
+        if isinstance(v, str) and v in LEGACY_MODEL_ALIASES:
+            v = LEGACY_MODEL_ALIASES[v]
         allowed_models = [model.value for model in ModelProvider]
         if v not in allowed_models:
-            raise ValueError(f'Model ID must be one of: {", ".join(allowed_models)}')
+            raise ValueError(
+                f'Model ID must be one of: {", ".join(allowed_models)}'
+            )
         return v
 
 
 class ModelCompareRequest(BaseModel):
     """Request for comparing multiple models."""
-    message: str = Field(..., min_length=1, max_length=2000, description="Message to compare across models")
-    models: List[str] = Field(..., min_items=2, max_items=5, description="List of model IDs to compare")
-    conversation_id: str = Field(..., min_length=1, max_length=100, description="Conversation identifier")
+    message: str = Field(
+        ..., min_length=1, max_length=2000,
+        description="Message to compare across models"
+    )
+    models: List[str] = Field(..., description="List of model IDs to compare")
+    conversation_id: str = Field(
+        ..., min_length=1, max_length=100,
+        description="Conversation identifier"
+    )
 
     @validator('models')
     def validate_models(cls, v):
+        if not isinstance(v, list) or len(v) < 2 or len(v) > 5:
+            raise ValueError("Provide between 2 and 5 model IDs to compare")
         allowed_models = [model.value for model in ModelProvider]
         for model in v:
             if model not in allowed_models:
-                raise ValueError(f'All models must be from: {", ".join(allowed_models)}')
+                raise ValueError(
+                    f'All models must be from: {", ".join(allowed_models)}'
+                )
         return v
 
 
 class ModelRecommendRequest(BaseModel):
     """Request for model recommendation."""
-    use_case: str = Field(..., min_length=1, max_length=100, description="Medical use case category")
-    needs_vision: Optional[bool] = Field(default=False, description="Requires image analysis capabilities")
-    privacy_required: Optional[bool] = Field(default=False, description="Requires local/private processing")
-    speed_priority: Optional[bool] = Field(default=False, description="Prioritize response speed")
-    accuracy_priority: Optional[bool] = Field(default=True, description="Prioritize response accuracy")
-    budget_conscious: Optional[bool] = Field(default=False, description="Prioritize cost-effectiveness")
+    use_case: str = Field(
+        ..., min_length=1, max_length=100,
+        description="Medical use case category"
+    )
+    needs_vision: Optional[bool] = Field(
+        default=False,
+        description="Requires image analysis capabilities"
+    )
+    privacy_required: Optional[bool] = Field(
+        default=False,
+        description="Requires local/private processing"
+    )
+    speed_priority: Optional[bool] = Field(
+        default=False, description="Prioritize response speed"
+    )
+    accuracy_priority: Optional[bool] = Field(
+        default=True, description="Prioritize response accuracy"
+    )
+    budget_conscious: Optional[bool] = Field(
+        default=False, description="Prioritize cost-effectiveness"
+    )
 
     @validator('use_case')
     def validate_use_case(cls, v):
         allowed_cases = [
-            'complex_diagnosis', 'mental_health', 'nutrition', 'general_consultation',
-            'emergency_triage', 'chronic_care', 'pediatrics', 'geriatrics',
-            'women_health', 'preventive_care', 'drug_interactions'
+            'complex_diagnosis', 'mental_health', 'nutrition',
+            'general_consultation', 'emergency_triage', 'chronic_care',
+            'pediatrics', 'geriatrics', 'women_health', 'preventive_care',
+            'drug_interactions'
         ]
         if v not in allowed_cases:
-            raise ValueError(f'Use case must be one of: {", ".join(allowed_cases)}')
+            raise ValueError(
+                f'Use case must be one of: {", ".join(allowed_cases)}'
+            )
         return v
 
 
 class ModelChatRequest(BaseModel):
     """Request for chat with specific model."""
-    message: str = Field(..., min_length=1, max_length=8000, description="Chat message content")
-    conversation_id: str = Field(..., min_length=1, max_length=100, description="Conversation identifier")
-    model_id: Optional[str] = Field(None, description="Optional model override")
-    include_image: Optional[bool] = Field(default=False, description="Include image processing")
-    include_audio: Optional[bool] = Field(default=False, description="Include audio processing")
+    message: str = Field(
+        ..., min_length=1, max_length=8000,
+        description="Chat message content"
+    )
+    conversation_id: str = Field(
+        ..., min_length=1, max_length=100,
+        description="Conversation identifier"
+    )
+    model_id: Optional[str] = Field(
+        None, description="Optional model override"
+    )
+    include_image: Optional[bool] = Field(
+        default=False, description="Include image processing"
+    )
+    include_audio: Optional[bool] = Field(
+        default=False, description="Include audio processing"
+    )
 
-    @validator('model_id')
+    @validator('model_id', pre=True)
     def validate_model_id(cls, v):
         if v is None:
             return v
+        # Map legacy identifiers to the canonical LiteLLM IDs
+        if isinstance(v, str) and v in LEGACY_MODEL_ALIASES:
+            v = LEGACY_MODEL_ALIASES[v]
         allowed_models = [model.value for model in ModelProvider]
         if v not in allowed_models:
-            raise ValueError(f'Model ID must be one of: {", ".join(allowed_models)}')
+            raise ValueError(
+                f'Model ID must be one of: {", ".join(allowed_models)}'
+            )
         return v
 
 
 class AvailableModelsQuery(BaseModel):
     """Query parameters for available models endpoint."""
-    privacy_required: bool = Field(default=False, description="Filter for privacy-focused models")
-    budget_conscious: bool = Field(default=False, description="Filter for cost-effective models")
-    needs_vision: bool = Field(default=False, description="Filter for vision-capable models")
+    privacy_required: bool = Field(
+        default=False, description="Filter for privacy-focused models"
+    )
+    budget_conscious: bool = Field(
+        default=False, description="Filter for cost-effective models"
+    )
+    needs_vision: bool = Field(
+        default=False, description="Filter for vision-capable models"
+    )
     language: str = Field(default="en", description="Preferred language code")
 
     @validator('language')
     def validate_language(cls, v):
-        allowed_languages = ['en', 'es', 'fr', 'de', 'it', 'pt', 'nl', 'pl', 'ja', 'ko', 'zh']
+        allowed_languages = [
+            'en', 'es', 'fr', 'de', 'it', 'pt', 'nl', 'pl', 'ja', 'ko', 'zh'
+        ]
         if v not in allowed_languages:
-            raise ValueError(f'Language must be one of: {", ".join(allowed_languages)}')
+            raise ValueError(
+                f'Language must be one of: {", ".join(allowed_languages)}'
+            )
         return v
 
 
 @router.get("/available")
 async def get_available_models(
     query: AvailableModelsQuery = Depends(),
-    current_user: str = Depends(verify_token)
+    current_user: str = Depends(verify_jwt_token)  # type: ignore[arg-type]
 ):
     """
     Get list of available AI models based on user preferences.
@@ -143,7 +226,7 @@ async def get_available_models(
 @router.post("/switch")
 async def switch_model(
     request: ModelSwitchRequest,
-    current_user: str = Depends(verify_token)
+    current_user: str = Depends(verify_jwt_token)  # type: ignore[arg-type]
 ):
     """
     Switch to a different AI model during conversation.
@@ -152,6 +235,17 @@ async def switch_model(
     """
     try:
         abstraction_layer = get_model_abstraction_layer()
+
+    # Ensure target is actually available
+    # (respects feature flags and credentials)
+        available = await abstraction_layer.get_available_models({})
+        if not any(m.get("id") == request.model_id for m in available):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    "Selected model is not available in this environment."
+                ),
+            )
 
         result = await abstraction_layer.switch_model(
             model_id=request.model_id,
@@ -166,6 +260,8 @@ async def switch_model(
             )
 
         return result
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -176,7 +272,7 @@ async def switch_model(
 @router.post("/compare")
 async def compare_models(
     request: ModelCompareRequest,
-    current_user: str = Depends(verify_token)
+    current_user: str = Depends(verify_jwt_token)  # type: ignore[arg-type]
 ):
     """
     Compare responses from multiple models side-by-side.
@@ -207,7 +303,7 @@ async def compare_models(
 @router.post("/recommend")
 async def get_model_recommendation(
     request: ModelRecommendRequest,
-    current_user: str = Depends(verify_token)
+    current_user: str = Depends(verify_jwt_token)  # type: ignore[arg-type]
 ):
     """
     Get AI model recommendation based on use case and requirements.
@@ -229,9 +325,16 @@ async def get_model_recommendation(
         )
 
         # Get model details
-        model_details = abstraction_layer.MODEL_REGISTRY.get(
-            next((m for m in abstraction_layer.MODEL_REGISTRY.keys()
-                  if m.value == recommended_model), None)
+        model_key = next(
+            (
+                m
+                for m in abstraction_layer.MODEL_REGISTRY
+                if m.value == recommended_model
+            ),
+            None,
+        )
+        model_details = (
+            abstraction_layer.MODEL_REGISTRY[model_key] if model_key else None
         )
 
         return {
@@ -250,7 +353,7 @@ async def get_model_recommendation(
 @router.post("/chat")
 async def chat_with_model(
     request: ModelChatRequest,
-    current_user: str = Depends(verify_token)
+    current_user: str = Depends(verify_jwt_token)  # type: ignore[arg-type]
 ):
     """
     Chat with a specific AI model or the current default.
@@ -280,7 +383,7 @@ async def chat_with_model(
 @router.post("/chat/stream")
 async def chat_with_model_stream(
     request: ModelChatRequest,
-    current_user: str = Depends(verify_token)
+    current_user: str = Depends(verify_jwt_token)  # type: ignore[arg-type]
 ):
     """
     Stream chat response from selected model.
@@ -290,7 +393,11 @@ async def chat_with_model_stream(
             abstraction_layer = get_model_abstraction_layer()
 
             # Yield a start event with conversation_id
-            yield f"data: {json.dumps({'type': 'start', 'conversation_id': request.conversation_id})}\n\n"
+            start_evt = {
+                "type": "start",
+                "conversation_id": request.conversation_id,
+            }
+            yield f"data: {json.dumps(start_evt)}\n\n"
 
             response = await abstraction_layer.process_message(
                 message=request.message,
@@ -304,10 +411,16 @@ async def chat_with_model_stream(
             chunk_size = 50  # Adjust chunk size as needed
             for i in range(0, len(content), chunk_size):
                 chunk = content[i:i+chunk_size]
-                yield f"data: {json.dumps({'type': 'content', 'text': chunk})}\n\n"
+                evt = {"type": "content", "text": chunk}
+                yield f"data: {json.dumps(evt)}\n\n"
 
             # Yield a final 'complete' event with the full response
-            yield f"data: {json.dumps({'type': 'complete', 'full_response': content, 'conversation_id': request.conversation_id})}\n\n"
+            complete_evt = {
+                "type": "complete",
+                "full_response": content,
+                "conversation_id": request.conversation_id,
+            }
+            yield f"data: {json.dumps(complete_evt)}\n\n"
 
         except Exception as e:
             # Yield an error event if something goes wrong
@@ -326,7 +439,7 @@ async def chat_with_model_stream(
 
 @router.get("/performance")
 async def get_model_performance(
-    current_user: str = Depends(verify_token)
+    current_user: str = Depends(verify_jwt_token)  # type: ignore[arg-type]
 ):
     """
     Get performance metrics for all models used in this session.
@@ -335,7 +448,10 @@ async def get_model_performance(
         abstraction_layer = get_model_abstraction_layer()
 
         metrics = {}
-        for model, perf_data in abstraction_layer.model_performance_metrics.items():
+        for (
+            model,
+            perf_data,
+        ) in abstraction_layer.model_performance_metrics.items():
             metrics[model.value] = perf_data
 
         return {
@@ -351,7 +467,7 @@ async def get_model_performance(
 
 @router.get("/current")
 async def get_current_model(
-    current_user: str = Depends(verify_token)
+    current_user: str = Depends(verify_jwt_token)  # type: ignore[arg-type]
 ):
     """
     Get the currently selected AI model.

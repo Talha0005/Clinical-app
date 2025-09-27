@@ -45,7 +45,12 @@ logger = logging.getLogger(__name__)
 # Load environment variables (for local development only)
 # Don't load .env in production environments like Railway
 if not os.getenv('RAILWAY_ENVIRONMENT_NAME'):
-    load_dotenv()
+    # Explicitly load backend/.env regardless of working directory
+    from pathlib import Path
+    _backend_dir = Path(__file__).parent
+    _env_path = _backend_dir / ".env"
+    load_dotenv(dotenv_path=_env_path)
+    print(f"📦 Loaded .env from {_env_path}")
 
 # JWT settings
 # Authentication handled by auth.py module

@@ -1,10 +1,14 @@
 import { useState, useEffect, useRef } from "react";
 import { Send, Mic, MicOff, Loader2, Camera, Upload, Settings, ChevronDown, ChevronUp, Brain } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useVoiceRecording } from "@/hooks/useVoiceRecording";
 import { useImageCapture } from "@/hooks/useImageCapture";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { apiFetch, apiFetchJson } from "@/lib/api";
+import { useAuth } from "@/hooks/useAuth";
+import { toast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 
 interface ChatInputProps {
   onSendMessage: (message: string) => void;
@@ -12,6 +16,7 @@ interface ChatInputProps {
   currentModel?: string;
   conversationId?: string;
   onModelSelect?: (modelId: string) => void;
+  onVoiceStateChange?: (state: { recording: boolean; transcribing: boolean }) => void;
 }
 
 export const ChatInput = ({
@@ -19,10 +24,14 @@ export const ChatInput = ({
   disabled = false,
   currentModel,
   conversationId,
-  onModelSelect
+  onModelSelect,
+  onVoiceStateChange
 }: ChatInputProps) => {
   const [message, setMessage] = useState("");
   const [showModelSelector, setShowModelSelector] = useState(false);
+  const [availableModels, setAvailableModels] = useState<Array<{ id: string; name: string }>>([]);
+  const [isAssessing, setIsAssessing] = useState(false);
+  const { token } = useAuth();
   const {
     isRecording,
     isConnecting,
@@ -45,20 +54,28 @@ export const ChatInput = ({
 
   const wasTranscribing = useRef(isTranscribing);
 
-  // Update message with transcription and send when done
+  // Update message with transcription and auto-send when final transcript arrives
   useEffect(() => {
     if (transcription) {
       setMessage(transcription);
     }
 
+    // Auto-send when transcription just finished
     if (wasTranscribing.current && !isTranscribing && transcription) {
-      onSendMessage(transcription);
-      setMessage('');
+      onSendMessage(transcription.trim());
+      setMessage("");
       clearTranscription();
     }
 
     wasTranscribing.current = isTranscribing;
   }, [isTranscribing, transcription, onSendMessage, clearTranscription]);
+
+  // Notify parent about voice state updates (for avatar speaking indicator)
+  useEffect(() => {
+    if (typeof onVoiceStateChange === 'function') {
+      onVoiceStateChange({ recording: isRecording, transcribing: isTranscribing });
+    }
+  }, [isRecording, isTranscribing, onVoiceStateChange]);
 
   // Update message with image analysis result
   useEffect(() => {
@@ -70,6 +87,24 @@ Recommendations: ${imageResult.recommendations.join(', ')}`;
       setMessage(analysisText);
     }
   }, [imageResult]);
+
+  // Load available models from backend (filters out unsupported options on this environment)
+  useEffect(() => {
+    const loadModels = async () => {
+      if (!token) return;
+      try {
+        const resp = await apiFetch('/api/models/available', { auth: true, token });
+        if (!resp.ok) return;
+        const data = await resp.json();
+        const models = Array.isArray(data?.models) ? data.models : [];
+        setAvailableModels(models.map((m: any) => ({ id: m.id, name: m.name })));
+      } catch (e) {
+        // Non-fatal; keep hardcoded fallback buttons if needed
+        console.warn('Failed to load available models', e);
+      }
+    };
+    loadModels();
+  }, [token]);
 
   const handleVoiceToggle = async () => {
     if (isRecording) {
@@ -90,6 +125,37 @@ Recommendations: ${imageResult.recommendations.join(', ')}`;
     if (file) {
       clearResult();
       uploadFile(file);
+    }
+  };
+
+  const handleClinicalAssessment = async () => {
+    if (!message.trim()) {
+      toast({ title: 'Enter symptoms first', description: 'Please describe the patient message before running a clinical assessment.' });
+      return;
+    }
+    try {
+      setIsAssessing(true);
+      const res = await apiFetchJson<any>("/api/medical/clinical/comprehensive-assessment", {
+        method: "POST",
+        auth: true,
+        token,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ patient_message: message.trim() })
+      });
+
+      if (!res || res.success === false) {
+        throw new Error(res?.error || 'Assessment failed');
+      }
+
+      const assessment = res.assessment ?? res;
+      const summary = typeof assessment === 'string' ? assessment : JSON.stringify(assessment, null, 2);
+      setMessage(`Clinical Assessment:\n${summary}`);
+      toast({ title: 'Clinical assessment ready', description: 'Review and send to include in the conversation.' });
+    } catch (err: any) {
+      console.error('Clinical assessment error:', err);
+      toast({ title: 'Clinical assessment failed', description: err?.message || 'Please try again.', variant: 'destructive' });
+    } finally {
+      setIsAssessing(false);
     }
   };
 
@@ -122,38 +188,58 @@ Recommendations: ${imageResult.recommendations.join(', ')}`;
               disabled={disabled}
             />
             {/* Model Selector, Camera, Upload, and Voice buttons */}
-            <div className="absolute right-2 bottom-2 flex gap-1">
+            <div className="absolute right-2 bottom-2 flex gap-1 ">
               {/* Model Selector Button */}
               {currentModel && onModelSelect && (
                 <Button
-                  type="button"
                   variant="ghost"
-                  size="sm"
+                  type="button"
                   onClick={() => setShowModelSelector(!showModelSelector)}
                   disabled={disabled}
-                  className="h-8 w-8 p-0 hover:bg-secondary"
+                  className={cn(
+                    "h-8 w-8 p-0 bg-gray-200 hover:bg-gray-300 border border-gray-300 "
+                  )}
                   title="AI Model Settings"
                 >
-                  <Settings className="h-4 w-4 text-medical-text-muted" />
+                  <Settings className="h-4 w-4 text-gray-700" />
                 </Button>
               )}
 
+              {/* Clinical Assessment Button */}
+              <Button
+                variant="ghost"
+                type="button"
+                onClick={handleClinicalAssessment}
+                disabled={disabled || isAssessing}
+                className={cn(
+                  "h-8 w-8 p-0 bg-gray-200 hover:bg-gray-300 border border-gray-300",
+                  isAssessing ? "ring-2 ring-blue-300" : ""
+                )}
+                title={isAssessing ? 'Assessing...' : 'Run Clinical Assessment'}
+              >
+                {isAssessing ? (
+                  <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+                ) : (
+                  <Brain className="h-4 w-4 text-gray-700" />
+                )}
+              </Button>
+
 
               <Button
-                type="button"
                 variant="ghost"
-                size="sm"
+                type="button"
                 onClick={handleCameraCapture}
                 disabled={disabled || isAnalyzing}
-                className={`h-8 w-8 p-0 hover:bg-secondary ${
-                  isAnalyzing ? 'bg-green-100 hover:bg-green-200 text-green-600' : ''
-                }`}
+                className={cn(
+                  "h-8 w-8 p-0 bg-gray-200 hover:bg-gray-300 border border-gray-300",
+                  isAnalyzing ? "ring-2 ring-green-300" : ""
+                )}
                 title={isAnalyzing ? 'Analyzing image...' : 'Take photo with camera'}
               >
                 {isAnalyzing ? (
-                  <Loader2 className="h-4 w-4 animate-spin text-medical-blue" />
+                  <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
                 ) : (
-                  <Camera className="h-4 w-4 text-medical-text-muted" />
+                  <Camera className="h-4 w-4 text-gray-700" />
                 )}
               </Button>
               
@@ -166,30 +252,34 @@ Recommendations: ${imageResult.recommendations.join(', ')}`;
                   disabled={disabled || isAnalyzing}
                 />
                 <Button
-                  type="button"
                   variant="ghost"
-                  size="sm"
+                  type="button"
                   disabled={disabled || isAnalyzing}
-                  className="h-8 w-8 p-0 hover:bg-secondary"
+                  className={cn(
+                    "h-8 w-8 p-0 bg-gray-200 hover:bg-gray-300 border border-gray-300"
+                  )}
                   title="Upload image file"
                   asChild
                 >
                   <span>
-                    <Upload className="h-4 w-4 text-medical-text-muted" />
+                    <Upload className="h-4 w-4 text-gray-700" />
                   </span>
                 </Button>
               </label>
 
               <Button
-                type="button"
                 variant="ghost"
-                size="sm"
+                type="button"
                 onClick={handleVoiceToggle}
                 disabled={disabled || isConnecting}
-                className={`h-8 w-8 p-0 hover:bg-secondary ${
-                  isRecording ? 'bg-red-100 hover:bg-red-200 text-red-600' : 
-                  isTranscribing ? 'bg-blue-100 hover:bg-blue-200 text-blue-600' : ''
-                }`}
+                className={cn(
+                  "h-8 w-8 p-0 bg-gray-200 hover:bg-gray-300 border border-gray-300",
+                  isRecording
+                    ? "ring-2 ring-red-300"
+                    : isTranscribing
+                      ? "ring-2 ring-blue-300"
+                      : ""
+                )}
                 title={
                   isRecording ? 'Click to stop recording' :
                   isConnecting ? 'Connecting...' :
@@ -198,11 +288,11 @@ Recommendations: ${imageResult.recommendations.join(', ')}`;
                 }
               >
                 {isConnecting || isTranscribing ? (
-                  <Loader2 className="h-4 w-4 animate-spin text-medical-blue" />
+                  <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
                 ) : isRecording ? (
                   <MicOff className="h-4 w-4" />
                 ) : (
-                  <Mic className="h-4 w-4 text-medical-text-muted" />
+                  <Mic className="h-4 w-4 text-gray-700" />
                 )}
               </Button>
             </div>
@@ -229,47 +319,44 @@ Recommendations: ${imageResult.recommendations.join(', ')}`;
               </CardHeader>
               <CardContent className="pt-0">
                 <div className="grid gap-3">
-                  <Button
-                    variant={currentModel === "anthropic/claude-3-opus-20240229" ? "default" : "outline"}
-                    className="w-full justify-start h-auto p-4"
-                    onClick={() => {
-                      onModelSelect("anthropic/claude-3-opus-20240229");
-                      setShowModelSelector(false);
-                    }}
-                  >
-                    <div className="text-left">
-                      <div className="font-medium">Claude Opus</div>
-                      <div className="text-sm opacity-70">Most capable • $0.015/1K tokens • Best for complex diagnosis</div>
-                    </div>
-                  </Button>
-
-                  <Button
-                    variant={currentModel === "anthropic/claude-3-5-sonnet-20241022" ? "default" : "outline"}
-                    className="w-full justify-start h-auto p-4"
-                    onClick={() => {
-                      onModelSelect("anthropic/claude-3-5-sonnet-20241022");
-                      setShowModelSelector(false);
-                    }}
-                  >
-                    <div className="text-left">
-                      <div className="font-medium">Claude Sonnet</div>
-                      <div className="text-sm opacity-70">Balanced • $0.003/1K tokens • Great for general consultation</div>
-                    </div>
-                  </Button>
-
-                  <Button
-                    variant={currentModel === "ollama/medllama2" ? "default" : "outline"}
-                    className="w-full justify-start h-auto p-4"
-                    onClick={() => {
-                      onModelSelect("ollama/medllama2");
-                      setShowModelSelector(false);
-                    }}
-                  >
-                    <div className="text-left">
-                      <div className="font-medium">Medical Llama</div>
-                      <div className="text-sm opacity-70">Private & Free • Local model • Medical specialist</div>
-                    </div>
-                  </Button>
+                  {(availableModels.length > 0
+                    ? availableModels
+                    : [
+                        // Fallback to only the known-supported default model when API list isn't available
+                        { id: 'anthropic/claude-3-5-sonnet-20240620', name: 'Claude Sonnet' },
+                      ]
+                  ).map((m) => {
+                    const isActive = currentModel === m.id;
+                    return (
+                    <Button
+                      key={m.id}
+                      className={cn(
+                        "w-full justify-between h-auto p-4 text-left group transition-colors",
+                        isActive
+                          ? "bg-medical-blue text-white hover:bg-medical-blue-dark"
+                          : "bg-white border border-border text-black hover:bg-medical-blue hover:text-white"
+                      )}
+                      title={currentModel === m.id ? 'Current model' : `Switch to ${m.name}`}
+                      onClick={() => {
+                        if (isActive) return; // no-op if already current
+                        onModelSelect?.(m.id);
+                        setShowModelSelector(false);
+                      }}
+                    >
+                      <div className="text-left">
+                        <div className={cn("font-medium", isActive ? "text-white" : "text-black group-hover:text-white")}>{m.name}</div>
+                        <div className={cn("text-sm", isActive ? "text-blue-50" : "text-gray-600 group-hover:text-blue-50") }>
+                          {m.id.includes('opus') && 'Most capable • Best for complex diagnosis'}
+                          {m.id.includes('sonnet') && 'Balanced • Great for general consultation'}
+                          {m.id.includes('gpt-4o') && 'OpenAI • Multimodal • Vision capable'}
+                          {m.id.includes('gemini') && 'Google • Long context • Vision capable'}
+                        </div>
+                      </div>
+                      {isActive && (
+                        <span className="ml-3 text-xs px-2 py-1 rounded-full bg-green-100 text-green-700">Current</span>
+                      )}
+                    </Button>
+                  )})}
                 </div>
               </CardContent>
             </Card>

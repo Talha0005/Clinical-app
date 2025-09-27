@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Loader2, Edit, Trash2, Plus, Save, X } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { apiFetchJson } from "@/lib/api";
 
 interface Prompt {
   id: string;
@@ -66,18 +67,10 @@ export const PromptsManagement: React.FC = () => {
   const loadPrompts = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/prompts', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
+      const data = await apiFetchJson<Prompt[]>('/api/prompts', {
+        auth: true,
+        token
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to load prompts');
-      }
-
-      const data = await response.json();
       setPrompts(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load prompts');
@@ -96,18 +89,13 @@ export const PromptsManagement: React.FC = () => {
         is_active: prompt.is_active
       };
 
-      const response = await fetch(`/api/prompts/${prompt.id}`, {
+      await apiFetchJson(`/api/prompts/${prompt.id}`, {
         method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
+        auth: true,
+        token,
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updateData)
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to update prompt');
-      }
 
       setSuccess('Prompt updated successfully');
       setEditingPrompt(null);
@@ -119,19 +107,13 @@ export const PromptsManagement: React.FC = () => {
 
   const handleCreatePrompt = async () => {
     try {
-      const response = await fetch('/api/prompts', {
+      await apiFetchJson('/api/prompts', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
+        auth: true,
+        token,
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
       });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || 'Failed to create prompt');
-      }
 
       setSuccess('Prompt created successfully');
       setShowCreateDialog(false);
@@ -155,17 +137,12 @@ export const PromptsManagement: React.FC = () => {
     }
 
     try {
-      const response = await fetch(`/api/prompts/${promptId}`, {
+      await apiFetchJson(`/api/prompts/${promptId}`, {
         method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
+        auth: true,
+        token,
+        headers: { 'Content-Type': 'application/json' }
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to delete prompt');
-      }
 
       setSuccess('Prompt deleted successfully');
       loadPrompts();

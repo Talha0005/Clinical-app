@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2 } from "lucide-react";
+import { apiFetchJson } from "@/lib/api";
 
 interface LoginPageProps {
   onLogin: (token: string, username: string) => void;
@@ -22,20 +23,11 @@ export const LoginPage = ({ onLogin }: LoginPageProps) => {
     setError("");
 
     try {
-      const response = await fetch("/api/auth/login", {
+      const data = await apiFetchJson<any>("/api/auth/login", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ username, password }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password })
       });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || "Login failed");
-      }
-
-      const data = await response.json();
       onLogin(data.access_token, data.username);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");

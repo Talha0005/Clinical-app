@@ -22,7 +22,7 @@ PyJWT>=2.8.0
 aiohttp>=3.9.0
 langfuse
 assemblyai
-litellm
+litellm==1.50.4
 cachetools
 pillow
 numpy

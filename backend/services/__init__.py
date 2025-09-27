@@ -4,17 +4,19 @@ Services module for DigiClinic
 
 import os
 from dotenv import load_dotenv
+from pathlib import Path
 from .chat_service import DigiClinicChatService
 
-# Load environment variables (for local development only)
-# Don't load .env in production environments like Railway
-if not os.getenv('RAILWAY_ENVIRONMENT_NAME'):
-    load_dotenv()
+# Load environment variables for local dev (or when explicitly set to 'development')
+env_name = os.getenv('RAILWAY_ENVIRONMENT_NAME')
+if not env_name or env_name.lower() == 'development':
+    # Load backend/.env explicitly regardless of CWD
+    backend_dir = Path(__file__).parent.parent
+    env_path = backend_dir / ".env"
+    load_dotenv(dotenv_path=env_path)
+    print(f"📦 Loaded .env for local development from {env_path}")
 else:
     print("🚂 Railway environment detected - skipping dotenv")
-    # In Railway, try refreshing the environment
-    import importlib
-    importlib.reload(os)
 
 # Register Claude LLM provider
 from llm.base_llm import LLMFactory

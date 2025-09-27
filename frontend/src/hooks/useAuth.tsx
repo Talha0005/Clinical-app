@@ -1,4 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { toast } from '@/hooks/use-toast';
+import { apiFetch } from '@/lib/api';
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -38,10 +40,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       if (storedToken && storedUsername) {
         try {
           // Verify token with backend
-          const response = await fetch('/api/auth/verify', {
-            headers: {
-              Authorization: `Bearer ${storedToken}`,
-            },
+          const response = await apiFetch('/api/auth/verify', {
+            auth: true,
+            token: storedToken,
           });
 
           if (response.ok) {
@@ -63,6 +64,14 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     };
 
     checkAuth();
+
+    // Listen for global unauthorized events to auto-logout
+    const onUnauthorized = () => {
+      toast({ title: 'Session expired', description: 'Please log in again.', variant: 'destructive' });
+      logout();
+    };
+    window.addEventListener('auth:unauthorized' as any, onUnauthorized);
+    return () => window.removeEventListener('auth:unauthorized' as any, onUnauthorized);
   }, []);
 
   const login = (newToken: string, newUsername: string) => {

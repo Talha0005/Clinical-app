@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from typing import Dict, List, Optional
+from pathlib import Path
 
 from fastapi import HTTPException
 
@@ -30,16 +31,25 @@ from .medical_observability import MedicalObservabilityClient
 
 
 class ModelProvider(Enum):
-    """Available model providers for patient selection."""
+    """Available model providers for patient selection.
+
+    Model IDs are aligned to LiteLLM's latest canonical identifiers
+    to avoid provider/model_not_found errors.
+    """
 
     CLAUDE_OPUS = "anthropic/claude-3-opus-20240229"
-    CLAUDE_SONNET = "anthropic/claude-3-5-sonnet-20241022"
+    CLAUDE_SONNET = "anthropic/claude-3-5-sonnet-20240620"
     CLAUDE_HAIKU = "anthropic/claude-3-haiku-20240307"
-    GPT4_TURBO = "gpt-4-turbo-preview"
-    GPT4O = "gpt-4o"
-    GPT35_TURBO = "gpt-3.5-turbo"
-    GEMINI_PRO = "gemini/gemini-1.5-pro"
-    GEMINI_FLASH = "gemini/gemini-1.5-flash"
+
+    # OpenAI
+    GPT4O = "openai/gpt-4o-2024-08-06"
+    GPT4O_MINI = "openai/gpt-4o-mini-2024-07-18"
+
+    # Google Gemini (LiteLLM canonical IDs use the 'gemini/' prefix)
+    GEMINI_PRO = "gemini/gemini-1.5-pro-002"
+    GEMINI_FLASH = "gemini/gemini-1.5-flash-002"
+
+    # Other optional providers (kept for future enablement)
     LLAMA3_70B = "together_ai/meta-llama/Llama-3-70b-chat-hf"
     MISTRAL_LARGE = "mistral-large-latest"
     MEDICAL_LLAMA = "ollama/medllama2"  # Specialized medical model
@@ -120,6 +130,21 @@ class ModelAbstractionLayer:
             languages=["en", "es", "fr", "de", "it", "pt", "ru", "ja", "ko", "zh"],
             specialties=["vision_analysis", "medical_imaging", "general_consultation"],
         ),
+        ModelProvider.GPT4O_MINI: ModelCapabilities(
+            name="GPT-4o mini (Cost-Effective)",
+            provider="openai",
+            context_window=128000,
+            supports_vision=True,
+            supports_function_calling=True,
+            supports_streaming=True,
+            medical_specialized=False,
+            privacy_level="cloud",
+            cost_per_1k_tokens=0.002,
+            speed_rating=5,
+            accuracy_rating=4,
+            languages=["en", "es", "fr", "de", "it", "pt", "ru", "ja", "ko", "zh"],
+            specialties=["general_consultation", "cost_sensitive"],
+        ),
         ModelProvider.GEMINI_PRO: ModelCapabilities(
             name="Gemini Pro (Google)",
             provider="google",
@@ -158,11 +183,23 @@ class ModelAbstractionLayer:
 
     def __init__(self):
         """Initialize the abstraction layer with all available models."""
+        # Resolve data directory relative to this file to avoid CWD issues
+        self._module_dir = Path(__file__).parent
+        self._backend_dir = self._module_dir.parent
+        self._data_dir = self._backend_dir / "dat"
+        self._data_dir.mkdir(parents=True, exist_ok=True)
+        self._current_model_path = self._data_dir / "current_model.json"
+        self._disabled_models: set[ModelProvider] = set()
+
         try:
-            with open("backend/dat/current_model.json", "r") as f:
-                data = json.load(f)
-                self.current_model = ModelProvider(data["model"])
-        except (FileNotFoundError, KeyError):
+            if self._current_model_path.exists():
+                with self._current_model_path.open("r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    self.current_model = ModelProvider(data["model"])
+            else:
+                self.current_model = ModelProvider.CLAUDE_SONNET
+        except (FileNotFoundError, KeyError, ValueError):
+            # On any parsing error, fallback to sensible default
             self.current_model = ModelProvider.CLAUDE_SONNET
 
         # Memory management configuration
@@ -178,6 +215,8 @@ class ModelAbstractionLayer:
         # Initialize observability if credentials available
         self._init_observability()
         self._initialize_providers()
+        self._apply_feature_flags()
+        self._ensure_current_model_available()
 
     def _init_observability(self):
         """Initialize observability client if credentials available."""
@@ -203,9 +242,12 @@ class ModelAbstractionLayer:
 
         # OpenAI (if available)
         self.openai_key = os.getenv("OPENAI_API_KEY")
+        # Allow disabling OpenAI via env to avoid quota errors
+        if os.getenv("OPENAI_DISABLED", "").strip().lower() in {"1", "true", "yes", "on"}:
+            self.openai_key = None
 
-        # Google (if available)
-        self.google_key = os.getenv("GOOGLE_API_KEY")
+        # Google Gemini (prefer GEMINI_API_KEY, fallback to GOOGLE_API_KEY)
+        self.google_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
 
         # Validate that we have at least one API key for model access
         if not any([self.anthropic_key, self.openai_key, self.google_key]):
@@ -229,10 +271,103 @@ class ModelAbstractionLayer:
             self.logger.info("ℹ️ No OpenAI API key found - GPT models unavailable")
 
         if self.google_key:
+            # Set both env vars so LiteLLM picks it up regardless of variant
             os.environ["GOOGLE_API_KEY"] = self.google_key
-            self.logger.info("✅ Google API key configured")
+            os.environ["GEMINI_API_KEY"] = self.google_key
+            self.logger.info("✅ Google/Gemini API key configured")
         else:
             self.logger.info("ℹ️ No Google API key found - Gemini models unavailable")
+
+    def _apply_feature_flags(self):
+        """Disable models that require explicit opt-in."""
+
+        def _env_flag(name: str) -> bool:
+            return os.getenv(name, "").strip().lower() in {"1", "true", "yes", "on"}
+
+        # Claude Opus requires enterprise access; opt-in via ANTHROPIC_ENABLE_OPUS
+        if not _env_flag("ANTHROPIC_ENABLE_OPUS"):
+            self._disable_model(
+                ModelProvider.CLAUDE_OPUS,
+                "Feature flag ANTHROPIC_ENABLE_OPUS not enabled",
+            )
+
+        # Optionally disable OpenAI models entirely
+        if _env_flag("OPENAI_DISABLED"):
+            self._disable_model(
+                ModelProvider.GPT4O,
+                "Feature flag OPENAI_DISABLED is enabled",
+            )
+            self._disable_model(
+                ModelProvider.GPT4O_MINI,
+                "Feature flag OPENAI_DISABLED is enabled",
+            )
+
+    def _is_model_enabled(self, model: ModelProvider) -> bool:
+        return model not in self._disabled_models
+
+    def _disable_model(self, model: ModelProvider, reason: str = ""):
+        if model in self._disabled_models:
+            return
+        self._disabled_models.add(model)
+        if reason:
+            self.logger.warning("Disabling model %s: %s", model.value, reason)
+        else:
+            self.logger.warning("Disabling model %s", model.value)
+        if self.current_model == model:
+            self._ensure_current_model_available()
+
+    def _ensure_current_model_available(self):
+        """Ensure the persisted current model is usable in this environment."""
+        caps = self.MODEL_REGISTRY.get(self.current_model)
+        if (
+            caps
+            and self._is_model_enabled(self.current_model)
+            and self._has_credentials_for_provider(caps.provider)
+        ):
+            return
+
+        # Preferred order when selecting a fallback default
+        preferred_models = [
+            ModelProvider.CLAUDE_SONNET,
+            ModelProvider.CLAUDE_OPUS,
+            ModelProvider.GPT4O,
+            ModelProvider.GEMINI_PRO,
+            ModelProvider.CLAUDE_HAIKU,
+        ]
+
+        for candidate in preferred_models:
+            caps = self.MODEL_REGISTRY.get(candidate)
+            if (
+                caps
+                and self._is_model_enabled(candidate)
+                and self._has_credentials_for_provider(caps.provider)
+            ):
+                if candidate != self.current_model:
+                    self.logger.info(
+                        "Adjusting default model to %s due to unavailable provider",
+                        candidate.value,
+                    )
+                    self.current_model = candidate
+                    self._save_current_model()
+                return
+
+        # As a last resort keep the current value (even if unusable) to avoid crash
+        self.logger.warning(
+            "No configured providers available; continuing with %s",
+            self.current_model.value,
+        )
+
+    def _save_current_model(self):
+        """Persist the currently selected model to disk."""
+        try:
+            with self._current_model_path.open("w", encoding="utf-8") as f:
+                json.dump({"model": self.current_model.value}, f)
+        except Exception as write_err:
+            self.logger.error(
+                "Failed to persist current model to %s: %s",
+                self._current_model_path,
+                write_err,
+            )
 
     async def get_available_models(
         self, patient_preferences: Dict = None
@@ -247,6 +382,8 @@ class ModelAbstractionLayer:
         available = []
 
         for model_enum, capabilities in self.MODEL_REGISTRY.items():
+            if not self._is_model_enabled(model_enum):
+                continue
             # Check if we have credentials for this provider
             if not self._has_credentials_for_provider(capabilities.provider):
                 continue
@@ -294,7 +431,8 @@ class ModelAbstractionLayer:
         elif provider == "google":
             return bool(self.google_key)
         elif provider == "local":
-            return True  # Assume local models are available
+            # Only expose local models when explicitly configured
+            return bool(os.getenv("OLLAMA_BASE_URL") or os.getenv("LOCAL_LLM_ENABLED"))
         return False
 
     async def switch_model(
@@ -311,6 +449,34 @@ class ModelAbstractionLayer:
         try:
             new_model = ModelProvider(model_id)
             old_model = self.current_model
+
+            if not self._is_model_enabled(new_model):
+                return {
+                    "success": False,
+                    "error": "Model disabled",
+                    "message": (
+                        "The selected model isn't available in this environment. "
+                        "Please choose another option."
+                    ),
+                }
+
+            # Validate target model is available in this environment
+            target_caps = self.MODEL_REGISTRY.get(new_model)
+            if not target_caps:
+                return {
+                    "success": False,
+                    "error": f"Unknown model: {model_id}",
+                    "message": "Failed to switch model",
+                }
+            if not self._has_credentials_for_provider(target_caps.provider):
+                return {
+                    "success": False,
+                    "error": f"Model '{target_caps.name}' is not available in this environment",
+                    "message": (
+                        "Missing required configuration for the selected model. "
+                        "Please choose another model or configure the provider first."
+                    ),
+                }
 
             # Log the switch with Langfuse
             if self.langfuse:
@@ -330,18 +496,30 @@ class ModelAbstractionLayer:
 
             self.current_model = new_model
 
-            with open("backend/dat/current_model.json", "w") as f:
-                json.dump({"model": new_model.value}, f)
+            # Persist the current model selection
+            self._save_current_model()
 
-            # Warm up the new model with context
-            await self._warm_up_model(new_model, context_summary)
+            # Try to warm up the new model with context, but don't fail the switch if it errors
+            warmup_ok = True
+            try:
+                await self._warm_up_model(new_model, context_summary)
+            except Exception as warm_err:
+                warmup_ok = False
+                self.logger.warning(
+                    "Warm-up failed for %s: %s (continuing without warm-up)",
+                    new_model.value,
+                    str(warm_err),
+                )
 
             return {
                 "success": True,
                 "previous_model": old_model.value,
                 "current_model": new_model.value,
-                "context_transferred": True,
-                "message": f"Successfully switched to {self.MODEL_REGISTRY[new_model].name}",
+                "context_transferred": warmup_ok,
+                "message": (
+                    f"Successfully switched to {self.MODEL_REGISTRY[new_model].name}"
+                    + (" (warm-up skipped)" if not warmup_ok else "")
+                ),
             }
 
         except Exception as e:
@@ -366,7 +544,7 @@ class ModelAbstractionLayer:
         Include: patient symptoms, key findings, current diagnosis hypothesis."""
 
         response = await litellm.acompletion(
-            model="claude-3-haiku-20240307",  # Fast model for summaries
+            model="anthropic/claude-3-haiku-20240307",  # Fast model for summaries
             messages=[
                 {"role": "system", "content": summary_prompt},
                 {"role": "user", "content": "Summarize the above conversation."},
@@ -523,12 +701,25 @@ class ModelAbstractionLayer:
             # Fallback to a different model if current fails
             # Prevent infinite recursion with max retry limit
             MAX_RETRIES = 2
-            if not model_override and retry_count < MAX_RETRIES and not internal:
+            error_text = str(e).lower()
+            if (
+                model_to_use == ModelProvider.CLAUDE_OPUS
+                and "not_found" in error_text
+            ):
+                self._disable_model(
+                    ModelProvider.CLAUDE_OPUS,
+                    "Provider reports model_not_found error",
+                )
+
+            # Even if a specific model was requested (model_override),
+            # auto-fallback on provider errors (e.g., quota/429, model_not_found)
+            if retry_count < MAX_RETRIES and not internal:
                 fallback_model = self._get_fallback_model(model_to_use)
                 # Don't retry if fallback is the same as current model
                 if fallback_model != model_to_use:
                     self.logger.warning(
-                        f"Model {model_to_use.value} failed, falling back to {fallback_model.value}. Retry {retry_count + 1}/{MAX_RETRIES}"
+                        f"Model {model_to_use.value} failed with error: {str(e)[:120]}...; "
+                        f"falling back to {fallback_model.value}. Retry {retry_count + 1}/{MAX_RETRIES}"
                     )
                     return await self.process_message(
                         message=message,
@@ -563,6 +754,30 @@ class ModelAbstractionLayer:
                 detail="AI service temporarily unavailable. Please try again later.",
             )
 
+    def _select_available_model(
+        self, candidates: List[ModelProvider], fallback: ModelProvider
+    ) -> ModelProvider:
+        for candidate in candidates:
+            caps = self.MODEL_REGISTRY.get(candidate)
+            if not caps:
+                continue
+            if not self._is_model_enabled(candidate):
+                continue
+            if not self._has_credentials_for_provider(caps.provider):
+                continue
+            return candidate
+
+        # If fallback is usable, return it; otherwise keep current model
+        fallback_caps = self.MODEL_REGISTRY.get(fallback)
+        if (
+            fallback_caps
+            and self._is_model_enabled(fallback)
+            and self._has_credentials_for_provider(fallback_caps.provider)
+        ):
+            return fallback
+
+        return self.current_model
+
     def _get_litellm_model_string(self, model: ModelProvider) -> str:
         """Convert our model enum to LiteLLM model string."""
         return model.value
@@ -573,13 +788,16 @@ class ModelAbstractionLayer:
         """Handle streaming completion."""
         full_response = ""
 
-        async for chunk in await litellm.acompletion(
+        # Request a streaming response. This returns an async generator; do NOT await it.
+        stream_gen = await litellm.acompletion(
             model=model,
             messages=messages,
             stream=True,
             temperature=0.7,
             max_tokens=2000,
-        ):
+        )
+
+        async for chunk in stream_gen:
             if chunk.choices[0].delta.content:
                 full_response += chunk.choices[0].delta.content
                 # Yield chunks for real-time display
@@ -766,15 +984,58 @@ class ModelAbstractionLayer:
 
     def _get_fallback_model(self, failed_model: ModelProvider) -> ModelProvider:
         """Get fallback model if primary fails."""
-        fallback_chain = {
-            ModelProvider.CLAUDE_OPUS: ModelProvider.CLAUDE_SONNET,
-            ModelProvider.CLAUDE_SONNET: ModelProvider.CLAUDE_HAIKU,
-            ModelProvider.GPT4O: ModelProvider.GPT4_TURBO,
-            ModelProvider.GPT4_TURBO: ModelProvider.GPT35_TURBO,
-            ModelProvider.GEMINI_PRO: ModelProvider.GEMINI_FLASH,
-        }
+        # Prefer intra-provider fallbacks first, then cross-provider based on available keys
+        if failed_model == ModelProvider.CLAUDE_OPUS:
+            return self._select_available_model(
+                [
+                    ModelProvider.CLAUDE_SONNET,
+                    ModelProvider.GPT4O,
+                    ModelProvider.CLAUDE_HAIKU,
+                ],
+                ModelProvider.CLAUDE_HAIKU,
+            )
+        if failed_model == ModelProvider.CLAUDE_SONNET:
+            return self._select_available_model(
+                [
+                    ModelProvider.CLAUDE_HAIKU,
+                    ModelProvider.GPT4O,
+                    ModelProvider.GEMINI_PRO,
+                ],
+                ModelProvider.CLAUDE_HAIKU,
+            )
+        if failed_model == ModelProvider.CLAUDE_HAIKU:
+            return self._select_available_model(
+                [
+                    ModelProvider.GPT4O,
+                    ModelProvider.GEMINI_PRO,
+                    ModelProvider.CLAUDE_SONNET,
+                ],
+                ModelProvider.CLAUDE_HAIKU,
+            )
 
-        return fallback_chain.get(failed_model, ModelProvider.CLAUDE_HAIKU)
+        if failed_model == ModelProvider.GPT4O or failed_model == ModelProvider.GPT4O_MINI:
+            # Fall back to Claude Sonnet if Anthropic is configured, else Gemini
+            return self._select_available_model(
+                [
+                    ModelProvider.CLAUDE_SONNET,
+                    ModelProvider.GEMINI_PRO,
+                    ModelProvider.GPT4O_MINI,
+                ],
+                ModelProvider.CLAUDE_HAIKU,
+            )
+
+        if failed_model == ModelProvider.GEMINI_PRO:
+            return self._select_available_model(
+                [
+                    ModelProvider.GPT4O,
+                    ModelProvider.CLAUDE_SONNET,
+                    ModelProvider.GEMINI_FLASH,
+                ],
+                ModelProvider.CLAUDE_HAIKU,
+            )
+
+        # Default safe fallback
+        return ModelProvider.CLAUDE_HAIKU
 
     async def compare_models(
         self, message: str, models: List[str], conversation_id: str

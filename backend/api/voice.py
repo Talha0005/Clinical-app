@@ -1,42 +1,57 @@
 """
-Voice API endpoints for DigiClinic
-WebSocket-based real-time voice processing with AssemblyAI integration
+Voice API endpoints for DigiClinic.
+
+WebSocket-based real-time voice processing with AssemblyAI integration.
 """
 
 import os
-import json
 import logging
-import asyncio
 import re
 from typing import Dict, Any, Optional
-from datetime import datetime, timedelta
-from pathlib import Path
+from datetime import datetime
 
-from fastapi import WebSocket, WebSocketDisconnect, UploadFile, File, HTTPException, Depends
+from fastapi import (
+    WebSocket,
+    WebSocketDisconnect,
+    UploadFile,
+    File,
+    HTTPException,
+)
 from fastapi.routing import APIRouter
 import aiofiles
 
-# Add parent directory to path for imports
-import sys
-from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent.parent))
+# Try absolute imports first; if that fails (dev), extend sys.path
+try:
+    from utils.file_validator import FileValidator
+    from services.voice_service import get_voice_service
+    from services.llm_router import get_llm_router, AgentType
+    from jose import JWTError, jwt
+    from auth import (
+        SECRET_KEY as JWT_SECRET,
+        ALGORITHM as JWT_ALGORITHM,
+    )
+except Exception:
+    import sys as _sys
+    from pathlib import Path as _Path
 
-from utils.file_validator import FileValidator
-
-from services.voice_service import get_voice_service, DigiClinicVoiceService
-from services.llm_router import get_llm_router, AgentType
-from jose import JWTError, jwt
+    _sys.path.insert(0, str(_Path(__file__).parent.parent))
+    from utils.file_validator import FileValidator
+    from services.voice_service import get_voice_service
+    from services.llm_router import get_llm_router, AgentType
+    from jose import JWTError, jwt
+    from auth import (
+        SECRET_KEY as JWT_SECRET,
+        ALGORITHM as JWT_ALGORITHM,
+    )
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/voice", tags=["voice"])
 
-# JWT Configuration (duplicated to avoid circular imports)
-JWT_SECRET = os.getenv("JWT_SECRET")
-if not JWT_SECRET:
-    raise RuntimeError("JWT_SECRET environment variable is required for voice API security")
-JWT_ALGORITHM = "HS256"
+# JWT Configuration: reuse app's auth settings with safe dev fallback
+# Note: SECRET_KEY is loaded via auth.py, which supports .env or dev fallback
 JWT_EXPIRATION_HOURS = 24
+
 
 def secure_filename(filename: str, max_length: int = 100) -> str:
     """
@@ -70,8 +85,9 @@ def secure_filename(filename: str, max_length: int = 100) -> str:
         
     return filename
 
+
 def verify_token_voice(token: str) -> Optional[Dict[str, Any]]:
-    """Verify JWT token for voice endpoints (duplicated from main.py to avoid circular imports)"""
+    """Verify JWT for voice endpoints (duplicated from main.py)."""
     try:
         payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
         username = payload.get("sub")
@@ -81,12 +97,14 @@ def verify_token_voice(token: str) -> Optional[Dict[str, Any]]:
     except JWTError:
         return None
 
+
 def validate_session_id(session_id: str) -> bool:
     """Validate session ID format to prevent injection attacks"""
     if not session_id or len(session_id) > 100:
         return False
     # Allow alphanumeric, hyphens, underscores only
     return re.match(r'^[a-zA-Z0-9_-]+$', session_id) is not None
+
 
 @router.websocket("/stream/{session_id}")
 async def voice_stream_endpoint(websocket: WebSocket, session_id: str):
@@ -95,8 +113,8 @@ async def voice_stream_endpoint(websocket: WebSocket, session_id: str):
     
     Protocol:
     1. Client connects with session_id
-    2. Client sends auth message: {"type": "auth", "token": "jwt_token"}  
-    3. Client sends audio chunks: {"type": "audio", "data": base64_encoded_bytes}
+    2. Client sends auth: {"type": "auth", "token": "jwt_token"}
+    3. Client sends audio chunks: {"type": "audio", "data": base64}
     4. Server responds with transcription updates
     5. Client sends {"type": "close"} to end session
     """
@@ -116,16 +134,22 @@ async def voice_stream_endpoint(websocket: WebSocket, session_id: str):
         logger.info(f"Voice WebSocket connected: session {session_id}")
         
         # Send welcome message
-        await websocket.send_json({
-            "type": "status",
-            "status": "connected",
-            "session_id": session_id,
-            "message": "Voice processing WebSocket connected. Please authenticate."
-        })
+        await websocket.send_json(
+            {
+                "type": "status",
+                "status": "connected",
+                "session_id": session_id,
+                "message": (
+                    "Voice processing WebSocket connected. "
+                    "Please authenticate."
+                ),
+            }
+        )
         
         # Create audio generator for voice service
         async def audio_generator():
             """Generator to yield audio chunks from WebSocket"""
+            stream_started = False
             while True:
                 try:
                     message = await websocket.receive_json()
@@ -135,8 +159,8 @@ async def voice_stream_endpoint(websocket: WebSocket, session_id: str):
                         token = message.get("token")
                         if not token:
                             await websocket.send_json({
-                                "type": "error", 
-                                "error": "Authentication token required"
+                                "type": "error",
+                                "error": "Authentication token required",
                             })
                             continue
                             
@@ -152,19 +176,28 @@ async def voice_stream_endpoint(websocket: WebSocket, session_id: str):
                         authenticated = True
                         user_id = payload.get("sub", "authenticated_user")
                         
-                        await websocket.send_json({
-                            "type": "status",
-                            "status": "authenticated", 
-                            "message": f"Authenticated as {user_id}"
-                        })
+                        await websocket.send_json(
+                            {
+                                "type": "status",
+                                "status": "authenticated",
+                                "message": (
+                                    f"Authenticated as {user_id}"
+                                ),
+                            }
+                        )
                         continue
                         
                     elif message["type"] == "audio":
                         if not authenticated:
-                            await websocket.send_json({
-                                "type": "error",
-                                "error": "Must authenticate before sending audio"
-                            })
+                            await websocket.send_json(
+                                {
+                                    "type": "error",
+                                    "error": (
+                                        "Must authenticate before sending"
+                                        " audio"
+                                    ),
+                                }
+                            )
                             continue
                             
                         # Validate and decode base64 audio data
@@ -173,22 +206,45 @@ async def voice_stream_endpoint(websocket: WebSocket, session_id: str):
                             
                             # Validate message has data field
                             if "data" not in message:
-                                await websocket.send_json({
-                                    "type": "error",
-                                    "error": "Audio message missing 'data' field"
-                                })
+                                await websocket.send_json(
+                                    {
+                                        "type": "error",
+                                        "error": (
+                                            "Audio message missing 'data'"
+                                            " field"
+                                        ),
+                                    }
+                                )
                                 continue
                                 
-                            # Validate data is not too large (1MB limit per chunk)
+                            # Validate data is not too large
+                            # (1MB limit per chunk)
                             data_str = message["data"]
                             if len(data_str) > 1400000:  # ~1MB base64 encoded
-                                await websocket.send_json({
-                                    "type": "error",
-                                    "error": "Audio chunk too large (max 1MB per chunk)"
-                                })
+                                await websocket.send_json(
+                                    {
+                                        "type": "error",
+                                        "error": (
+                                            "Audio chunk too large (max 1MB"
+                                            " per chunk)"
+                                        ),
+                                    }
+                                )
                                 continue
                             
                             audio_data = base64.b64decode(data_str)
+                            if not stream_started:
+                                stream_started = True
+                                await websocket.send_json(
+                                    {
+                                        "type": "status",
+                                        "status": "audio_started",
+                                        "message": (
+                                            "Audio stream received."
+                                            " Transcribing…"
+                                        ),
+                                    }
+                                )
                             yield audio_data
                             
                         except Exception as e:
@@ -199,7 +255,9 @@ async def voice_stream_endpoint(websocket: WebSocket, session_id: str):
                             continue
                         
                     elif message["type"] == "close":
-                        logger.info(f"Voice stream close requested: {session_id}")
+                        logger.info(
+                            f"Voice stream close requested: {session_id}"
+                        )
                         break
                         
                     else:
@@ -221,16 +279,18 @@ async def voice_stream_endpoint(websocket: WebSocket, session_id: str):
 
         # Process audio stream with voice service
         async for result in voice_service.process_audio_stream(
-            audio_generator(), 
-            session_id, 
-            user_id
+            audio_generator(),
+            session_id,
+            user_id,
         ):
             try:
                 # Send transcription results to client
                 await websocket.send_json(result)
                 
                 # If we have a final transcript, optionally process with LLM
-                if result.get("type") == "final_transcript" and result.get("text"):
+                if result.get("type") == "final_transcript" and result.get(
+                    "text"
+                ):
                     transcript_text = result["text"]
                     
                     # Generate LLM response for the transcript
@@ -263,7 +323,9 @@ async def voice_stream_endpoint(websocket: WebSocket, session_id: str):
                         })
                 
             except WebSocketDisconnect:
-                logger.info(f"Client disconnected during voice processing: {session_id}")
+                logger.info(
+                    f"Client disconnected during voice processing: {session_id}"
+                )
                 break
             except Exception as e:
                 logger.error(f"Error sending voice result: {e}")
@@ -278,7 +340,7 @@ async def voice_stream_endpoint(websocket: WebSocket, session_id: str):
                 "type": "error",
                 "error": f"WebSocket error: {str(e)}"
             })
-        except:
+        except Exception:
             pass
 
 @router.post("/upload")

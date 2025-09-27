@@ -1,4 +1,7 @@
 import { useState, useCallback } from 'react';
+import { useAuth } from '@/hooks/useAuth';
+import { apiFetchJson } from '@/lib/api';
+import { toast } from '@/hooks/use-toast';
 
 interface ImageAnalysisResult {
   findings: string[];
@@ -26,44 +29,67 @@ export const useImageCapture = (): UseImageCaptureReturn => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ImageAnalysisResult | null>(null);
+  const { token } = useAuth();
 
   const analyzeImage = useCallback(async (file: File) => {
     setIsAnalyzing(true);
     setError(null);
 
     try {
-      const token = localStorage.getItem('digiclinic_token');
       if (!token) {
         throw new Error('Authentication token not found');
       }
 
       const formData = new FormData();
       formData.append('file', file);
-      formData.append('analysis_type', 'comprehensive');
+      // Backend expects 'analysis_level' with values: basic | clinical | diagnostic | detailed
+      formData.append('analysis_level', 'clinical');
 
-      const response = await fetch('/api/medical/vision/analyze', {
+      const raw = await apiFetchJson<any>('/api/medical/vision/analyze', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
+        auth: true,
+        token,
         body: formData,
+        timeoutMs: 120_000,
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.detail || 'Failed to analyze image');
+      // Some backend failures return success:false with HTTP 200
+      if (raw && raw.success === false) {
+        throw new Error(raw.error || 'Failed to analyze image');
       }
 
-      const analysisResult = await response.json();
-      setResult(analysisResult);
+      // Expected backend shape: { success: true, image_id, analysis: { ...fields } }
+      const analysis = raw?.analysis;
+      if (!analysis) {
+        throw new Error('Invalid analysis response');
+      }
+
+      // Normalize to hook’s expected shape
+      const normalized: ImageAnalysisResult = {
+        findings: analysis.clinical_observations ?? [],
+        severity: analysis.risk_assessment ?? 'unknown',
+        recommendations: analysis.recommendations ?? [],
+        clinical_coding: analysis.snomed_codes?.length
+          ? {
+              snomed_codes: (analysis.snomed_codes as Array<any>).map((c: any) => ({
+                code: c.code,
+                display: c.display,
+                system: 'snomed_ct',
+              })),
+            }
+          : undefined,
+      };
+
+      setResult(normalized);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to analyze image';
       setError(errorMessage);
       console.error('Image analysis error:', err);
+      toast({ title: 'Image analysis failed', description: errorMessage, variant: 'destructive' });
     } finally {
       setIsAnalyzing(false);
     }
-  }, []);
+  }, [token]);
 
   const captureFromCamera = useCallback(async () => {
     try {
