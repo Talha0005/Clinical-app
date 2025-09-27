@@ -406,15 +406,17 @@ async def chat_with_model_stream(
             )
 
             content = response["content"]
-            
-            # Stream the response in chunks for the 'content' events
-            chunk_size = 50  # Adjust chunk size as needed
+
+            # Stream the response in larger chunks
+            # to reduce UI update frequency
+            chunk_size = 200  # fewer events, smoother UI
             for i in range(0, len(content), chunk_size):
                 chunk = content[i:i+chunk_size]
                 evt = {"type": "content", "text": chunk}
                 yield f"data: {json.dumps(evt)}\n\n"
 
             # Yield a final 'complete' event with the full response
+            # (single finalize)
             complete_evt = {
                 "type": "complete",
                 "full_response": content,

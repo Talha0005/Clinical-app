@@ -10,6 +10,8 @@ import inspect
 from typing import Optional, AsyncGenerator, Dict, Any, Callable
 from dataclasses import dataclass
 from enum import Enum
+import threading
+import queue
 
 import assemblyai as aai
 from langfuse import observe
@@ -36,7 +38,8 @@ class VoiceConfig:
     format_text: bool = True
     dual_channel: bool = False
     speaker_labels: bool = False
-    speech_model: str = "best"  # "nano", "best"
+    # Prefer the new universal realtime model to avoid deprecation errors
+    speech_model: str = "universal"
 
 
 class DigiClinicVoiceService:
@@ -117,87 +120,62 @@ class DigiClinicVoiceService:
 
             transcriber = None
 
-            # Prefer config-based construction when available
-            config_cls = None
-            config = None
-            if hasattr(aai, "RealtimeTranscriberConfig"):
-                config_cls = getattr(aai, "RealtimeTranscriberConfig")
-            elif hasattr(aai, "RealtimeTranscriptionConfig"):
-                config_cls = getattr(aai, "RealtimeTranscriptionConfig")
+            # Build constructor kwargs dynamically to match SDK version
+            ctor_kwargs: Dict[str, Any] = {}
+            if sample_rate is None:
+                sample_rate = self.config.sample_rate
+            if on_data is not None:
+                ctor_kwargs["on_data"] = on_data
+            if on_error is not None:
+                ctor_kwargs["on_error"] = on_error
+            if on_open is not None:
+                ctor_kwargs["on_open"] = on_open
+            if on_close is not None:
+                ctor_kwargs["on_close"] = on_close
+            ctor_kwargs["sample_rate"] = sample_rate
 
-            if config_cls is not None:
-                try:
-                    speech_model = None
-                    if hasattr(aai, "SpeechModel"):
-                        try:
-                            speech_model = aai.SpeechModel(
-                                self.config.speech_model
-                            )
-                        except Exception:
-                            speech_model = getattr(
-                                aai.SpeechModel,
-                                self.config.speech_model,
-                                None,
-                            )
-
-                    extra_kwargs = (
-                        {"speech_model": speech_model}
-                        if speech_model is not None
-                        else {}
-                    )
-                    config = config_cls(
-                        language_code=self.config.language_code,
-                        sample_rate=self.config.sample_rate,
-                        punctuate=self.config.punctuate,
-                        format_text=self.config.format_text,
-                        dual_channel=self.config.dual_channel,
-                        speaker_labels=self.config.speaker_labels,
-                        **extra_kwargs,
-                    )
-                except TypeError:
-                    # Minimal config for older SDKs
-                    config = config_cls(
-                        language_code=self.config.language_code,
-                        sample_rate=self.config.sample_rate,
-                    )
-
-            # Instantiate transcriber using best available API
+            # Prefer the universal model when the constructor supports it
             try:
-                if config is not None:
-                    # Older SDKs: pass config object
-                    transcriber = aai.RealtimeTranscriber(config=config)
-                else:
-                    # Newer SDKs (e.g., 0.44.3) require handlers +
-                    # sample_rate in constructor
-                    ctor_kwargs: Dict[str, Any] = {}
-                    if sample_rate is None:
-                        sample_rate = self.config.sample_rate
-                    # Only include keys if provided (on_open/on_close optional)
-                    if on_data is not None:
-                        ctor_kwargs["on_data"] = on_data
-                    if on_error is not None:
-                        ctor_kwargs["on_error"] = on_error
-                    if on_open is not None:
-                        ctor_kwargs["on_open"] = on_open
-                    if on_close is not None:
-                        ctor_kwargs["on_close"] = on_close
-                    ctor_kwargs["sample_rate"] = sample_rate
-                    # Explicitly set PCM16 encoding when available
+                sig = inspect.signature(aai.RealtimeTranscriber)
+                if "transcription_model" in sig.parameters:
+                    ctor_kwargs["transcription_model"] = "universal"
+                elif "speech_model" in sig.parameters:
+                    ctor_kwargs["speech_model"] = "universal"
+                elif "model" in sig.parameters:
+                    ctor_kwargs["model"] = "universal"
+                if "encoding" in sig.parameters:
+                    # AssemblyAI 0.44.3 expects an AudioEncoding enum.
+                    # Prefer aai.types.AudioEncoding.pcm_s16le when available.
                     try:
-                        if hasattr(aai, "AudioEncoding"):
-                            ctor_kwargs["encoding"] = aai.AudioEncoding.pcm16
+                        aai_types = getattr(aai, "types", None)
+                        audio_enc = (
+                            getattr(aai_types, "AudioEncoding", None)
+                            if aai_types is not None
+                            else None
+                        )
+                        if (
+                            audio_enc is not None
+                            and hasattr(audio_enc, "pcm_s16le")
+                        ):
+                            ctor_kwargs["encoding"] = audio_enc.pcm_s16le
+                        else:
+                            # Fallback: let SDK default if enum unavailable
+                            pass
                     except Exception:
                         pass
+            except Exception:
+                # If introspection fails, continue with minimal args
+                pass
 
-                    try:
-                        transcriber = aai.RealtimeTranscriber(**ctor_kwargs)
-                    except TypeError:
-                        # Fallbacks for odd SDKs: try minimal required args
-                        transcriber = aai.RealtimeTranscriber(
-                            on_data=on_data or (lambda *_: None),
-                            on_error=on_error or (lambda *_: None),
-                            sample_rate=sample_rate,
-                        )
+            try:
+                transcriber = aai.RealtimeTranscriber(**ctor_kwargs)
+            except TypeError:
+                # Fallbacks for odd SDKs: try minimal required args
+                transcriber = aai.RealtimeTranscriber(
+                    on_data=on_data or (lambda *_: None),
+                    on_error=on_error or (lambda *_: None),
+                    sample_rate=sample_rate,
+                )
             except Exception as e:
                 logger.error(
                     f"Failed to instantiate RealtimeTranscriber: {e}"
@@ -244,280 +222,270 @@ class DigiClinicVoiceService:
         audio_task = None  # Initialize audio_task at function scope
 
         try:
-            # Prepare event handlers and dynamic connect kwargs
-            # Create async queue for transcription results
-            result_queue: asyncio.Queue = asyncio.Queue()
-
-            # Helper to extract event fields safely across SDK variants
-            def _extract_attr(obj: Any, name: str, default: Any = None):
-                if hasattr(obj, name):
-                    try:
-                        return getattr(obj, name)
-                    except Exception:
-                        return default
-                if isinstance(obj, dict):
-                    return obj.get(name, default)
-                return default
-
-            def on_partial_transcript(transcript: Any):
-                result = {
-                    "type": "partial_transcript",
-                    "text": _extract_attr(transcript, "text", ""),
-                    "confidence": _extract_attr(
-                        transcript, "confidence", None
-                    ),
-                    "is_final": False,
-                    "audio_start": _extract_attr(
-                        transcript, "audio_start", None
-                    ),
-                    "audio_end": _extract_attr(
-                        transcript, "audio_end", None
-                    ),
-                }
-                asyncio.create_task(result_queue.put(result))
-
-            def on_final_transcript(transcript: Any):
-                result = {
-                    "type": "final_transcript",
-                    "text": _extract_attr(transcript, "text", ""),
-                    "confidence": _extract_attr(
-                        transcript, "confidence", None
-                    ),
-                    "is_final": True,
-                    "audio_start": _extract_attr(
-                        transcript, "audio_start", None
-                    ),
-                    "audio_end": _extract_attr(
-                        transcript, "audio_end", None
-                    ),
-                }
-                asyncio.create_task(result_queue.put(result))
-
-            def on_error(error: Any):
-                logger.error(f"AssemblyAI transcription error: {error}")
-                err_code = _extract_attr(error, "error_code", None)
-                result = {
-                    "type": "error",
-                    "error": str(error),
-                    "error_code": err_code,
-                }
-                asyncio.create_task(result_queue.put(result))
-
-            # Build unified on_data that dispatches to partial/final
-            def unified_on_data(event: Any):
-                try:
-                    cls_name = (
-                        event.__class__.__name__
-                        if hasattr(event, "__class__")
-                        else ""
-                    )
-                    if isinstance(event, dict):
-                        msg_type = (
-                            event.get("type")
-                            or event.get("message_type")
-                            or ""
-                        )
-                        if "partial" in str(msg_type).lower():
-                            on_partial_transcript(event)
-                        else:
-                            on_final_transcript(event)
-                    elif cls_name.lower().find("partial") != -1:
-                        on_partial_transcript(event)
-                    else:
-                        on_final_transcript(event)
-                except Exception as e:  # Ensure errors surface
-                    on_error(e)
-
-            # Create transcriber (handlers passed for SDKs that require them)
-            transcriber = await self.create_real_time_transcriber(
-                session_id,
-                user_id,
-                on_data=unified_on_data,
-                on_error=on_error,
-                sample_rate=self.config.sample_rate,
-            )
-
-            if not transcriber:
-                # Could be missing API key or unsupported SDK version
-                message = (
-                    self.last_error_message
-                    or (
-                        "Voice service requires ASSEMBLYAI_API_KEY "
-                        "environment variable"
-                    )
-                )
-                status = "error" if self.last_error_message else "no_api_key"
-                yield {
-                    "type": "status",
-                    "status": status,
-                    "message": message,
-                }
-                return
-
-            # Start real transcription
-            self.status = VoiceServiceStatus.CONNECTING
-            yield {
-                "type": "status",
-                "status": self.status.value,
-                "message": "Connecting to AssemblyAI transcription "
-                "service",
-            }
-
-            # Connect to AssemblyAI: handle sync vs async connect
+            # Prefer the new Streaming v3 API when available
             try:
-                connect_method = getattr(transcriber, "connect")
-                if inspect.iscoroutinefunction(connect_method):
-                    await connect_method()
-                else:
-                    connect_method()
-            except Exception as e:
-                logger.error(f"Failed to connect RealtimeTranscriber: {e}")
-                raise
+                if not self.api_key:
+                    raise RuntimeError("No API key for streaming v3")
+                from assemblyai.streaming import v3 as aai_stream_v3
 
-            self.status = VoiceServiceStatus.ACTIVE
-            yield {
-                "type": "status",
-                "status": self.status.value,
-                "message": "Real-time transcription active",
-            }
+                result_queue: asyncio.Queue = asyncio.Queue()
 
-            # Create tasks for concurrent audio processing and result handling
-
-            async def process_audio():
-                """Process audio stream in background"""
+                # Capture loop reference for thread-safe enqueues
                 try:
-                    async for audio_chunk in audio_generator:
-                        # Resolve best available streaming method
-                        stream_method: Optional[Callable] = None
-                        for name in (
-                            "stream",
-                            "send_audio",
-                            "send",
-                            "send_pcm",
-                        ):
-                            if hasattr(transcriber, name):
-                                stream_method = getattr(transcriber, name)
-                                break
-                        if stream_method is None:
-                            raise RuntimeError(
-                                "AssemblyAI SDK missing audio streaming "
-                                "method"
-                            )
+                    loop = asyncio.get_running_loop()
+                except RuntimeError:
+                    loop = asyncio.get_event_loop()
 
+                def _enqueue_threadsafe(item: Dict[str, Any]):
+                    try:
+                        loop.call_soon_threadsafe(
+                            result_queue.put_nowait, item
+                        )
+                    except Exception as e:
                         try:
-                            if inspect.iscoroutinefunction(stream_method):
-                                await stream_method(audio_chunk)
-                            else:
-                                stream_method(audio_chunk)
-                        except TypeError:
-                            # Some SDKs expect (bytes, sample_rate)
-                            if inspect.iscoroutinefunction(stream_method):
-                                await stream_method(
-                                    audio_chunk, self.config.sample_rate
-                                )
-                            else:
-                                stream_method(
-                                    audio_chunk, self.config.sample_rate
-                                )
-                        # Small delay to allow processing
-                        await asyncio.sleep(0.01)
-                except Exception as e:
-                    logger.error(f"Error processing audio chunk: {e}")
-                    await result_queue.put(
+                            asyncio.run_coroutine_threadsafe(
+                                result_queue.put(item), loop
+                            )
+                        except Exception:
+                            logger.error(f"Failed to enqueue result: {e}")
+
+                # Event handlers
+                def on_begin(_client, event):
+                    _enqueue_threadsafe(
                         {
-                            "type": "error",
-                            "error": f"Audio processing error: {str(e)}",
+                            "type": "status",
+                            "status": VoiceServiceStatus.ACTIVE.value,
+                            "message": (
+                                "Session started: "
+                                f"{getattr(event, 'id', '')}"
+                            ),
                         }
                     )
-                finally:
-                    # Signal end of audio processing
-                    await result_queue.put({"type": "_audio_complete"})
 
-            # Start audio processing in background
-            audio_task = asyncio.create_task(process_audio())
+                def on_turn(_client, event):
+                    try:
+                        transcript = getattr(event, "transcript", "")
+                        end_of_turn = bool(
+                            getattr(event, "end_of_turn", False)
+                        )
+                        result = {
+                            "type": (
+                                "final_transcript" if end_of_turn
+                                else "partial_transcript"
+                            ),
+                            "text": transcript or "",
+                            "confidence": getattr(
+                                event, "end_of_turn_confidence", None
+                            ),
+                            "is_final": end_of_turn,
+                            # Universal streaming doesn't expose
+                            # audio_start/end; omit
+                        }
+                        _enqueue_threadsafe(result)
+                    except Exception as e:
+                        _enqueue_threadsafe({
+                            "type": "error",
+                            "error": f"Turn handling error: {e}",
+                        })
 
-            # Process results from queue
-            audio_complete = False
-            while not audio_complete:
-                try:
-                    # Wait for results with timeout
-                    result = await asyncio.wait_for(
-                        result_queue.get(), timeout=1.0
+                def on_terminated(_client, event):
+                    _enqueue_threadsafe(
+                        {
+                            "type": "status",
+                            "status": "completed",
+                            "message": "Audio stream processing completed",
+                        }
                     )
 
-                    if result.get("type") == "_audio_complete":
-                        audio_complete = True
-                        continue
+                def on_stream_error(_client, error):
+                    _enqueue_threadsafe(
+                        {
+                            "type": "error",
+                            "error": str(error),
+                            "error_code": getattr(error, "code", None),
+                        }
+                    )
 
-                    # Yield transcription results to client
-                    yield result
+                # Initialize client
+                client = aai_stream_v3.StreamingClient(
+                    aai_stream_v3.StreamingClientOptions(
+                        api_key=self.api_key,
+                        api_host="streaming.assemblyai.com",
+                    )
+                )
+                client.on(aai_stream_v3.StreamingEvents.Begin, on_begin)
+                client.on(aai_stream_v3.StreamingEvents.Turn, on_turn)
+                client.on(
+                    aai_stream_v3.StreamingEvents.Termination, on_terminated
+                )
+                client.on(aai_stream_v3.StreamingEvents.Error, on_stream_error)
 
-                except asyncio.TimeoutError:
-                    # Check if audio task is done
-                    if audio_task.done():
-                        break
-                    continue
+                # Update status: connecting
+                self.status = VoiceServiceStatus.CONNECTING
+                yield {
+                    "type": "status",
+                    "status": self.status.value,
+                    "message": (
+                        "Connecting to AssemblyAI transcription "
+                        "service"
+                    ),
+                }
+
+                # Connect with parameters (Universal Streaming)
+                try:
+                    client.connect(
+                        aai_stream_v3.StreamingParameters(
+                            sample_rate=self.config.sample_rate,
+                            # For latency-sensitive voice agents,
+                            # keep unformatted
+                            # format_turns can be enabled if needed
+                        )
+                    )
                 except Exception as e:
                     logger.error(
-                        f"Error processing result queue: {e}"
+                        f"Failed to connect StreamingClient (v3): {e}"
                     )
+                    # Surface the real error to client and exit gracefully
                     yield {
                         "type": "error",
                         "error": (
-                            f"Result processing error: {str(e)}"
+                            "Realtime connect failed: "
+                            f"{str(e)}. Check ASSEMBLYAI_API_KEY."
                         ),
                     }
+                    return
 
-            # Attempt to flush any remaining partials into a final transcript
-            try:
-                # Prefer an explicit flush/end if the SDK supports it
-                if hasattr(transcriber, "flush"):
-                    flush_fn = getattr(transcriber, "flush")
-                    if inspect.iscoroutinefunction(flush_fn):
-                        await flush_fn()
-                    else:
-                        flush_fn()
-                elif hasattr(transcriber, "end"):
-                    end_fn = getattr(transcriber, "end")
-                    if inspect.iscoroutinefunction(end_fn):
-                        await end_fn()
-                    else:
-                        end_fn()
-            except Exception:
-                # Non-fatal if flush not supported
-                pass
+                # Mark active
+                self.status = VoiceServiceStatus.ACTIVE
+                yield {
+                    "type": "status",
+                    "status": self.status.value,
+                    "message": "Real-time transcription active",
+                }
 
-            # Drain results emitted by flush/end for a short window
-            try:
-                loop = asyncio.get_event_loop()
-                deadline = loop.time() + 1.0
-                while loop.time() < deadline:
+                # Bridge async audio generator -> blocking .stream()
+                # via thread + Queue
+                byte_queue: "queue.Queue[Optional[bytes]]" = queue.Queue(
+                    maxsize=100
+                )
+
+                async def feed_audio():
                     try:
-                        extra = await asyncio.wait_for(
-                            result_queue.get(), timeout=0.2
+                        async for audio_chunk in audio_generator:
+                            try:
+                                byte_queue.put(audio_chunk, timeout=1.0)
+                            except queue.Full:
+                                logger.warning(
+                                    "Audio queue full, dropping a chunk to"
+                                    " keep up"
+                                )
+                    except Exception as e:
+                        await result_queue.put({
+                            "type": "error",
+                            "error": f"Audio processing error: {e}",
+                        })
+                    finally:
+                        # signal end of audio
+                        try:
+                            byte_queue.put(None, timeout=1.0)
+                        except Exception:
+                            pass
+
+                def byte_iter():
+                    while True:
+                        item = byte_queue.get()
+                        if item is None:
+                            break
+                        yield item
+
+                # Start feeding audio
+                audio_task = asyncio.create_task(feed_audio())
+
+                # Start streaming in a background thread
+                stream_exc: Dict[str, Any] = {}
+
+                def _run_stream():
+                    try:
+                        client.stream(byte_iter())
+                    except Exception as e:
+                        stream_exc["error"] = e
+
+                stream_thread = threading.Thread(
+                    target=_run_stream, daemon=True
+                )
+                stream_thread.start()
+
+                # Consume results until audio complete and stream thread ends
+                while True:
+                    try:
+                        result = await asyncio.wait_for(
+                            result_queue.get(), timeout=0.5
                         )
-                        if extra.get("type") != "_audio_complete":
-                            yield extra
+                        yield result
+                        # If completed status emitted and stream thread
+                        # finished, exit
+                        if (
+                            result.get("type") == "status"
+                            and result.get("status") == "completed"
+                        ):
+                            break
                     except asyncio.TimeoutError:
-                        break
-            except Exception:
-                pass
+                        if not stream_thread.is_alive() and (
+                            audio_task.done() if audio_task else True
+                        ):
+                            break
+                        continue
 
-            # Signal end of audio stream and close transcriber
-            try:
-                if hasattr(transcriber, "close"):
-                    if inspect.iscoroutinefunction(transcriber.close):
-                        await transcriber.close()
-                    else:
-                        transcriber.close()
-            except Exception:
-                pass
+                # Ensure disconnect
+                try:
+                    client.disconnect(terminate=True)
+                except Exception:
+                    pass
 
+                # Surface any streaming exception
+                if "error" in stream_exc:
+                    err = stream_exc["error"]
+                    logger.error(f"Streaming v3 error: {err}")
+                    yield {
+                        "type": "error",
+                        "error": f"Realtime streaming error: {err}",
+                    }
+                    return
+
+                # End of processing for v3 path
+                return
+            except Exception as v3_err:
+                # Fall back to legacy RealtimeTranscriber path only for
+                # import-time errors (module missing). If it's an auth or
+                # connection error, surface it and return.
+                msg = str(v3_err)
+                if any(k in msg.lower() for k in [
+                    "unauthorized", "invalid api key", "forbidden"
+                ]):
+                    yield {
+                        "type": "error",
+                        "error": (
+                            "AssemblyAI authorization failed. Please set a"
+                            " valid ASSEMBLYAI_API_KEY in backend/.env and"
+                            " restart the server."
+                        ),
+                    }
+                    return
+                logger.info(
+                    "Streaming v3 import/path unavailable, falling back: %s",
+                    v3_err,
+                )
+
+            # If we reach here, v3 is not usable and we won't use legacy
             yield {
-                "type": "status",
-                "status": "completed",
-                "message": "Audio stream processing completed",
+                "type": "error",
+                "error": (
+                    "AssemblyAI streaming v3 is unavailable in this "
+                    "environment. Please upgrade 'assemblyai' package to "
+                    ">=0.43 and ensure ASSEMBLYAI_API_KEY is set."
+                ),
             }
+            return
 
         except Exception as e:
             logger.error(f"Voice processing failed: {e}")
@@ -581,15 +549,38 @@ class DigiClinicVoiceService:
                     "duration": 0.0,
                 }
 
-            # Configure transcription
-            config = aai.TranscriptionConfig(
-                language_code=self.config.language_code,
-                punctuate=self.config.punctuate,
-                format_text=self.config.format_text,
-                dual_channel=self.config.dual_channel,
-                speaker_labels=self.config.speaker_labels,
-                speech_model=aai.SpeechModel(self.config.speech_model),
-            )
+            # Configure transcription with model compatibility across SDKs
+            cfg_kwargs: Dict[str, Any] = {
+                "language_code": self.config.language_code,
+                "punctuate": self.config.punctuate,
+                "format_text": self.config.format_text,
+                "dual_channel": self.config.dual_channel,
+                "speaker_labels": self.config.speaker_labels,
+            }
+            try:
+                cfg_sig = inspect.signature(aai.TranscriptionConfig)
+                params = set(cfg_sig.parameters.keys())
+                model_value: Any = self.config.speech_model
+                # Prefer using SpeechModel if available
+                if hasattr(aai, "SpeechModel"):
+                    try:
+                        model_value = aai.SpeechModel(self.config.speech_model)
+                    except Exception:
+                        model_value = self.config.speech_model
+                if "speech_model" in params:
+                    cfg_kwargs["speech_model"] = model_value
+                elif "model" in params:
+                    cfg_kwargs["model"] = model_value
+            except Exception:
+                # Fallback: try common param names without introspection
+                try:
+                    cfg_kwargs["speech_model"] = getattr(
+                        aai, "SpeechModel", lambda x: x
+                    )(self.config.speech_model)
+                except Exception:
+                    cfg_kwargs["model"] = self.config.speech_model
+
+            config = aai.TranscriptionConfig(**cfg_kwargs)
 
             # Create transcriber and process file
             transcriber = aai.Transcriber(config=config)
@@ -612,7 +603,8 @@ class DigiClinicVoiceService:
                 "confidence": transcript.confidence,
                 "status": "completed",
                 # Convert to seconds
-                "duration": transcript.audio_duration / 1000.0,
+                "duration": (getattr(transcript, "audio_duration", 0) or 0)
+                / 1000.0,
                 "words": len(transcript.words) if transcript.words else 0,
             }
 
@@ -634,14 +626,19 @@ class DigiClinicVoiceService:
 
     async def health_check(self) -> Dict[str, Any]:
         """Check voice service health"""
+        # Determine realtime support: prefer Streaming v3 if available
+        v3_supported = False
+        try:
+            from assemblyai.streaming import v3 as _aai_stream_v3  # type: ignore
+            v3_supported = hasattr(_aai_stream_v3, "StreamingClient")
+        except Exception:
+            v3_supported = False
+
         health = {
             "service_status": self.status.value,
             "assemblyai_configured": bool(self.api_key),
-            # Consider realtime supported if RealtimeTranscriber exists,
-            # even when config classes are absent
-            "realtime_supported": bool(
-                getattr(aai, "RealtimeTranscriber", None)
-            ),
+            # Realtime supported if Streaming v3 is present or legacy transcriber exists
+            "realtime_supported": bool(v3_supported or getattr(aai, "RealtimeTranscriber", None)),
             "assemblyai_version": getattr(aai, "__version__", "unknown"),
             "config": {
                 "language_code": self.config.language_code,

@@ -17,6 +17,7 @@ interface ChatInputProps {
   conversationId?: string;
   onModelSelect?: (modelId: string) => void;
   onVoiceStateChange?: (state: { recording: boolean; transcribing: boolean }) => void;
+  onVoiceAIResponse?: (response: string, meta?: any) => void;
 }
 
 export const ChatInput = ({
@@ -25,7 +26,8 @@ export const ChatInput = ({
   currentModel,
   conversationId,
   onModelSelect,
-  onVoiceStateChange
+  onVoiceStateChange,
+  onVoiceAIResponse
 }: ChatInputProps) => {
   const [message, setMessage] = useState("");
   const [showModelSelector, setShowModelSelector] = useState(false);
@@ -38,9 +40,13 @@ export const ChatInput = ({
     isTranscribing,
     error,
     transcription,
+    llmResponse,
+    llmMeta,
+    isGeneratingResponse,
     startRecording,
     stopRecording,
-    clearTranscription
+    clearTranscription,
+    clearLlmResponse
   } = useVoiceRecording();
 
   const {
@@ -51,6 +57,12 @@ export const ChatInput = ({
     uploadFile,
     clearResult
   } = useImageCapture();
+
+  // Prevent duplicate auto-sends for the same image analysis
+  const lastImageSigRef = useRef<string | null>(null);
+  // Guard against rapid duplicate sends (double onChange, re-renders, etc.)
+  const imageSendInFlightRef = useRef<boolean>(false);
+  const lastImageSendAtRef = useRef<number>(0);
 
   const wasTranscribing = useRef(isTranscribing);
 
@@ -70,6 +82,16 @@ export const ChatInput = ({
     wasTranscribing.current = isTranscribing;
   }, [isTranscribing, transcription, onSendMessage, clearTranscription]);
 
+  // Handle LLM response from voice - pass to parent for AI response display
+  useEffect(() => {
+    if (llmResponse && onVoiceAIResponse) {
+      // Pass the LLM response to parent component for proper AI message display
+      onVoiceAIResponse(llmResponse, llmMeta);
+      // Clear the LLM response after passing to parent
+      setTimeout(() => clearLlmResponse(), 500);
+    }
+  }, [llmResponse, llmMeta, onVoiceAIResponse, clearLlmResponse]);
+
   // Notify parent about voice state updates (for avatar speaking indicator)
   useEffect(() => {
     if (typeof onVoiceStateChange === 'function') {
@@ -77,16 +99,65 @@ export const ChatInput = ({
     }
   }, [isRecording, isTranscribing, onVoiceStateChange]);
 
-  // Update message with image analysis result
-  useEffect(() => {
-    if (imageResult) {
-      const analysisText = `Medical Image Analysis:
-Findings: ${imageResult.findings.join(', ')}
-Severity: ${imageResult.severity}
-Recommendations: ${imageResult.recommendations.join(', ')}`;
-      setMessage(analysisText);
+  // Helper: stable stringify to generate a consistent signature
+  const stableStringify = (value: any): string => {
+    const sorter = (val: any): any => {
+      if (Array.isArray(val)) return val.map(sorter);
+      if (val && typeof val === 'object') {
+        return Object.keys(val)
+          .sort()
+          .reduce((acc: any, k) => {
+            acc[k] = sorter(val[k]);
+            return acc;
+          }, {});
+      }
+      return val;
+    };
+    try {
+      return JSON.stringify(sorter(value));
+    } catch {
+      return String(Date.now());
     }
-  }, [imageResult]);
+  };
+
+  // Automatically send image analysis result as chat message (deduplicated + cooldown)
+  useEffect(() => {
+    if (!imageResult) return;
+
+    // Build stable signature to detect repeats
+    const sig = stableStringify(imageResult);
+    const now = Date.now();
+    const recentlySent = now - lastImageSendAtRef.current < 5000; // 5s cooldown
+
+    // Drop if duplicate signature or a send is already in-flight/recent
+    if (sig && lastImageSigRef.current === sig) return;
+    if (imageSendInFlightRef.current || recentlySent) return;
+
+    const analysisText = `📸 Medical Image Analysis:
+
+**Findings:** ${imageResult.findings.join(', ') || 'No specific findings noted'}
+
+**Risk Assessment:** ${imageResult.severity || 'Not specified'}
+
+**Recommendations:** ${imageResult.recommendations.join(', ') || 'No specific recommendations'}
+
+Please provide your medical assessment and advice based on this image analysis.`;
+
+    // Mark in-flight and remember signature + timestamp
+    imageSendInFlightRef.current = true;
+    lastImageSigRef.current = sig;
+    lastImageSendAtRef.current = now;
+
+    try {
+      onSendMessage(analysisText);
+    } finally {
+      // Clear the image result after sending and release the lock shortly after
+      setTimeout(() => {
+        try { clearResult(); } catch {}
+        imageSendInFlightRef.current = false;
+      }, 800);
+    }
+  }, [imageResult, onSendMessage, clearResult]);
 
   // Load available models from backend (filters out unsupported options on this environment)
   useEffect(() => {
@@ -192,12 +263,12 @@ Recommendations: ${imageResult.recommendations.join(', ')}`;
               {/* Model Selector Button */}
               {currentModel && onModelSelect && (
                 <Button
-                  variant="ghost"
+                  variant="outline"
                   type="button"
                   onClick={() => setShowModelSelector(!showModelSelector)}
                   disabled={disabled}
                   className={cn(
-                    "h-8 w-8 p-0 bg-gray-200 hover:bg-gray-300 border border-gray-300 "
+                    "h-8 w-8 p-0 bg-gray-100 hover:bg-gray-200 border-2 border-gray-300 shadow-lg"
                   )}
                   title="AI Model Settings"
                 >
@@ -207,18 +278,18 @@ Recommendations: ${imageResult.recommendations.join(', ')}`;
 
               {/* Clinical Assessment Button */}
               <Button
-                variant="ghost"
+                variant="outline"
                 type="button"
                 onClick={handleClinicalAssessment}
                 disabled={disabled || isAssessing}
                 className={cn(
-                  "h-8 w-8 p-0 bg-gray-200 hover:bg-gray-300 border border-gray-300",
-                  isAssessing ? "ring-2 ring-blue-300" : ""
+                  "h-8 w-8 p-0 bg-gray-100 hover:bg-gray-200 border-2 border-gray-300 shadow-lg",
+                  isAssessing ? "ring-2 ring-green-400" : ""
                 )}
                 title={isAssessing ? 'Assessing...' : 'Run Clinical Assessment'}
               >
                 {isAssessing ? (
-                  <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+                  <Loader2 className="h-4 w-4 animate-spin text-green-400" />
                 ) : (
                   <Brain className="h-4 w-4 text-gray-700" />
                 )}
@@ -226,18 +297,18 @@ Recommendations: ${imageResult.recommendations.join(', ')}`;
 
 
               <Button
-                variant="ghost"
+                variant="outline"
                 type="button"
                 onClick={handleCameraCapture}
                 disabled={disabled || isAnalyzing}
                 className={cn(
-                  "h-8 w-8 p-0 bg-gray-200 hover:bg-gray-300 border border-gray-300",
-                  isAnalyzing ? "ring-2 ring-green-300" : ""
+                  "h-8 w-8 p-0 bg-gray-100 hover:bg-gray-200 border-2 border-gray-300 shadow-lg",
+                  isAnalyzing ? "ring-2 ring-green-400" : ""
                 )}
                 title={isAnalyzing ? 'Analyzing image...' : 'Take photo with camera'}
               >
                 {isAnalyzing ? (
-                  <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+                  <Loader2 className="h-4 w-4 animate-spin text-green-400" />
                 ) : (
                   <Camera className="h-4 w-4 text-gray-700" />
                 )}
@@ -252,11 +323,11 @@ Recommendations: ${imageResult.recommendations.join(', ')}`;
                   disabled={disabled || isAnalyzing}
                 />
                 <Button
-                  variant="ghost"
+                  variant="outline"
                   type="button"
                   disabled={disabled || isAnalyzing}
                   className={cn(
-                    "h-8 w-8 p-0 bg-gray-200 hover:bg-gray-300 border border-gray-300"
+                    "h-8 w-8 p-0 bg-gray-100 hover:bg-gray-200 border-2 border-gray-300 shadow-lg"
                   )}
                   title="Upload image file"
                   asChild
@@ -268,29 +339,32 @@ Recommendations: ${imageResult.recommendations.join(', ')}`;
               </label>
 
               <Button
-                variant="ghost"
+                variant="outline"
                 type="button"
                 onClick={handleVoiceToggle}
                 disabled={disabled || isConnecting}
                 className={cn(
-                  "h-8 w-8 p-0 bg-gray-200 hover:bg-gray-300 border border-gray-300",
+                  "h-8 w-8 p-0 bg-gray-100 hover:bg-gray-200 border-2 border-gray-300 shadow-lg",
                   isRecording
-                    ? "ring-2 ring-red-300"
+                    ? "ring-2 ring-red-400 bg-red-100 hover:bg-red-200"
                     : isTranscribing
-                      ? "ring-2 ring-blue-300"
-                      : ""
+                      ? "ring-2 ring-blue-400 bg-blue-100 hover:bg-blue-200"
+                      : isGeneratingResponse
+                        ? "ring-2 ring-green-400 bg-green-100 hover:bg-green-200"
+                        : ""
                 )}
                 title={
                   isRecording ? 'Click to stop recording' :
                   isConnecting ? 'Connecting...' :
                   isTranscribing ? 'Transcribing...' :
+                  isGeneratingResponse ? 'AI is responding...' :
                   'Click to start voice input'
                 }
               >
-                {isConnecting || isTranscribing ? (
-                  <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+                {isConnecting || isTranscribing || isGeneratingResponse ? (
+                  <Loader2 className="h-4 w-4 animate-spin text-gray-700" />
                 ) : isRecording ? (
-                  <MicOff className="h-4 w-4" />
+                  <MicOff className="h-4 w-4 text-gray-700" />
                 ) : (
                   <Mic className="h-4 w-4 text-gray-700" />
                 )}
@@ -301,7 +375,7 @@ Recommendations: ${imageResult.recommendations.join(', ')}`;
           <Button
             type="submit"
             disabled={!message.trim() || disabled}
-            className="bg-medical-blue hover:bg-medical-blue-dark text-white h-[52px] px-6"
+            className="bg-gray-100 hover:bg-gray-200 text-gray-700 border-2 border-gray-300 shadow-lg h-[52px] px-6"
           >
             <Send className="h-4 w-4" />
           </Button>
@@ -313,7 +387,7 @@ Recommendations: ${imageResult.recommendations.join(', ')}`;
             <Card className="w-full">
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2 text-lg">
-                  <Brain className="w-5 h-5 text-primary" />
+                  <Brain className="w-5 h-5 text-black" />
                   Select AI Model
                 </CardTitle>
               </CardHeader>
@@ -333,8 +407,8 @@ Recommendations: ${imageResult.recommendations.join(', ')}`;
                       className={cn(
                         "w-full justify-between h-auto p-4 text-left group transition-colors",
                         isActive
-                          ? "bg-medical-blue text-white hover:bg-medical-blue-dark"
-                          : "bg-white border border-border text-black hover:bg-medical-blue hover:text-white"
+                          ? "bg-white text-gray-800 border-2 border-gray-400 shadow-md"
+                          : "bg-white border border-gray-300 text-gray-700 hover:bg-blue-600 hover:text-white"
                       )}
                       title={currentModel === m.id ? 'Current model' : `Switch to ${m.name}`}
                       onClick={() => {
@@ -344,8 +418,8 @@ Recommendations: ${imageResult.recommendations.join(', ')}`;
                       }}
                     >
                       <div className="text-left">
-                        <div className={cn("font-medium", isActive ? "text-white" : "text-black group-hover:text-white")}>{m.name}</div>
-                        <div className={cn("text-sm", isActive ? "text-blue-50" : "text-gray-600 group-hover:text-blue-50") }>
+                        <div className={cn("font-medium", isActive ? "text-gray-800" : "text-gray-700 group-hover:text-white")}>{m.name}</div>
+                        <div className={cn("text-sm", isActive ? "text-gray-600" : "text-gray-500 group-hover:text-white") }>
                           {m.id.includes('opus') && 'Most capable • Best for complex diagnosis'}
                           {m.id.includes('sonnet') && 'Balanced • Great for general consultation'}
                           {m.id.includes('gpt-4o') && 'OpenAI • Multimodal • Vision capable'}

@@ -1,9 +1,3 @@
-"""
-Voice API endpoints for DigiClinic.
-
-WebSocket-based real-time voice processing with AssemblyAI integration.
-"""
-
 import os
 import logging
 import re
@@ -25,11 +19,11 @@ try:
     from utils.file_validator import FileValidator
     from services.voice_service import get_voice_service
     from services.llm_router import get_llm_router, AgentType
-    from jose import JWTError, jwt
-    from auth import (
-        SECRET_KEY as JWT_SECRET,
-        ALGORITHM as JWT_ALGORITHM,
+    from services.clinical_codes_cache import (
+        get_clinical_codes_for_symptoms,
     )
+    from jose import JWTError, jwt
+    import auth as _auth
 except Exception:
     import sys as _sys
     from pathlib import Path as _Path
@@ -38,11 +32,17 @@ except Exception:
     from utils.file_validator import FileValidator
     from services.voice_service import get_voice_service
     from services.llm_router import get_llm_router, AgentType
+    try:
+        from services.clinical_codes_cache import (
+            get_clinical_codes_for_symptoms,
+        )
+    except Exception:
+        get_clinical_codes_for_symptoms = None  # type: ignore
     from jose import JWTError, jwt
-    from auth import (
-        SECRET_KEY as JWT_SECRET,
-        ALGORITHM as JWT_ALGORITHM,
-    )
+    try:
+        import auth as _auth
+    except Exception:
+        _auth = None
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +51,61 @@ router = APIRouter(prefix="/api/voice", tags=["voice"])
 # JWT Configuration: reuse app's auth settings with safe dev fallback
 # Note: SECRET_KEY is loaded via auth.py, which supports .env or dev fallback
 JWT_EXPIRATION_HOURS = 24
+# Load JWT settings from auth if available; otherwise use env/dev defaults
+JWT_SECRET = (
+    getattr(_auth, "SECRET_KEY", None)
+    if "_auth" in globals() and _auth
+    else None
+) or os.getenv("JWT_SECRET") or os.getenv("SECRET_KEY") or "dev-secret-change-me"
+JWT_ALGORITHM = (
+    getattr(_auth, "ALGORITHM", None)
+    if "_auth" in globals() and _auth
+    else None
+) or os.getenv("JWT_ALGORITHM") or os.getenv("ALGORITHM") or "HS256"
+
+# Feature flags (defaults keep current behavior unchanged)
+VOICE_INCLUDE_CODES_IN_WS = (
+    os.getenv("VOICE_INCLUDE_CODES_IN_WS", "false").strip().lower() == "true"
+)
+VOICE_INCLUDE_AVATAR_IN_WS = (
+    os.getenv("VOICE_INCLUDE_AVATAR_IN_WS", "false").strip().lower() == "true"
+)
+VOICE_DEFAULT_AVATAR = os.getenv("VOICE_DEFAULT_AVATAR", "doctor")
+
+
+def _extract_codes_minimal_from_text(text: str):
+    """
+    Produce a compact list of clinical codes
+    [{code, system, display}] from free text using the MVP cache via
+    get_clinical_codes_for_symptoms, if available. Returns [] on any
+    failure.
+    """
+    try:
+        if not text:
+            return []
+        if (
+            'get_clinical_codes_for_symptoms' not in globals()
+            or not get_clinical_codes_for_symptoms
+        ):
+            return []
+        report = get_clinical_codes_for_symptoms([text])
+        codes = report.get("clinical_codes", []) or []
+        # Minimize payload to essential fields
+        minimized = []
+        for c in codes:
+            try:
+                minimized.append(
+                    {
+                        "code": c.get("code"),
+                        "system": c.get("system"),
+                        "display": c.get("display"),
+                    }
+                )
+            except Exception:
+                continue
+        return minimized
+    except Exception:
+        return []
 
 
 def secure_filename(filename: str, max_length: int = 100) -> str:
@@ -129,6 +184,10 @@ async def voice_stream_endpoint(websocket: WebSocket, session_id: str):
     llm_router = get_llm_router()
     authenticated = False
     user_id = "anonymous"
+    # Per-connection config (overrides env flags)
+    include_codes = VOICE_INCLUDE_CODES_IN_WS
+    include_avatar = VOICE_INCLUDE_AVATAR_IN_WS
+    avatar_id = VOICE_DEFAULT_AVATAR
     
     try:
         logger.info(f"Voice WebSocket connected: session {session_id}")
@@ -259,6 +318,38 @@ async def voice_stream_endpoint(websocket: WebSocket, session_id: str):
                             f"Voice stream close requested: {session_id}"
                         )
                         break
+                    
+                    elif message["type"] == "config":
+                        # Optional per-connection config
+                        try:
+                            cfg = message.get("config", {}) or {}
+                            nonlocal include_codes, include_avatar, avatar_id
+                            if isinstance(cfg.get("include_codes"), bool):
+                                include_codes = bool(cfg["include_codes"])
+                            if isinstance(cfg.get("include_avatar"), bool):
+                                include_avatar = bool(cfg["include_avatar"])
+                            if isinstance(cfg.get("avatar"), str) and cfg.get("avatar"):
+                                avatar_id = str(cfg["avatar"]).strip()
+                            await websocket.send_json(
+                                {
+                                    "type": "status",
+                                    "status": "configured",
+                                    "message": "Voice session configuration updated",
+                                    "config": {
+                                        "include_codes": include_codes,
+                                        "include_avatar": include_avatar,
+                                        "avatar": avatar_id,
+                                    },
+                                }
+                            )
+                        except Exception as e:
+                            await websocket.send_json(
+                                {
+                                    "type": "error",
+                                    "error": f"Invalid config payload: {str(e)}",
+                                }
+                            )
+                        continue
                         
                     else:
                         await websocket.send_json({
@@ -296,35 +387,78 @@ async def voice_stream_endpoint(websocket: WebSocket, session_id: str):
                     # Generate LLM response for the transcript
                     try:
                         messages = [
-                            {"role": "user", "content": transcript_text}
+                            {
+                                "role": "user",
+                                "content": transcript_text,
+                            }
                         ]
-                        
-                        llm_response = await llm_router.generate_response(
+
+                        # Use router's safe helper that always returns a string
+                        resp_text = await llm_router.route_request(
                             messages=messages,
                             agent_type=AgentType.AVATAR,
                             session_id=session_id,
                             user_id=user_id,
-                            complexity_hint="simple"
+                            complexity_hint="simple",
                         )
-                        
+
+                        if not resp_text:
+                            resp_text = (
+                                "I'm experiencing technical difficulties. "
+                                "Please try again."
+                            )
+
+                        # Optionally generate clinical coding report from the transcript
+                        clinical_report = None
+                        try:
+                            if 'get_clinical_codes_for_symptoms' in globals() and get_clinical_codes_for_symptoms:
+                                report = get_clinical_codes_for_symptoms([transcript_text])
+                                # Keep it compact for the UI payload
+                                clinical_report = {
+                                    "clinical_codes": report.get("clinical_codes", []),
+                                    "differential_diagnoses": report.get("differential_diagnoses", []),
+                                    "summary": report.get("report_summary", ""),
+                                }
+                        except Exception as e:
+                            logger.error(f"Clinical coding failed: {e}")
+
                         # Send LLM response to client
-                        await websocket.send_json({
+                        payload = {
                             "type": "llm_response",
-                            "response": llm_response["content"],
-                            "model_used": llm_response.get("model_used"),
-                            "transcript": transcript_text
-                        })
-                        
+                            "response": resp_text,
+                            "model_used": None,
+                            "transcript": transcript_text,
+                            # Preserve existing clinical_report field
+                            "clinical_report": clinical_report,
+                        }
+                        # Attach small codes payload behind a flag
+                        if include_codes:
+                            try:
+                                payload["clinical"] = {
+                                    "codes": _extract_codes_minimal_from_text(transcript_text),
+                                    "source": "cache",
+                                }
+                            except Exception:
+                                payload["clinical"] = {"codes": []}
+                        # Attach avatar when enabled
+                        if include_avatar and avatar_id:
+                            payload["avatar"] = avatar_id
+
+                        await websocket.send_json(payload)
+
                     except Exception as e:
                         logger.error(f"LLM processing failed: {e}")
-                        await websocket.send_json({
-                            "type": "error",
-                            "error": f"LLM processing failed: {str(e)}"
-                        })
+                        await websocket.send_json(
+                            {
+                                "type": "error",
+                                "error": f"LLM processing failed: {str(e)}",
+                            }
+                        )
                 
             except WebSocketDisconnect:
                 logger.info(
-                    f"Client disconnected during voice processing: {session_id}"
+                    "Client disconnected during voice processing: %s",
+                    session_id,
                 )
                 break
             except Exception as e:
@@ -342,6 +476,7 @@ async def voice_stream_endpoint(websocket: WebSocket, session_id: str):
             })
         except Exception:
             pass
+
 
 @router.post("/upload")
 async def upload_voice_file(
@@ -363,14 +498,23 @@ async def upload_voice_file(
     
     # Verify authentication
     if not token:
-        raise HTTPException(status_code=401, detail="Authentication token required")
+        raise HTTPException(
+            status_code=401,
+            detail="Authentication token required",
+        )
     
     payload = verify_token_voice(token)
     if not payload:
-        raise HTTPException(status_code=401, detail="Invalid authentication token")
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid authentication token",
+        )
     
     user_id = payload.get("sub", "authenticated_user")
-    current_session_id = session_id or f"upload_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    current_session_id = (
+        session_id
+        or f"upload_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    )
     
     voice_service = get_voice_service()
     
@@ -386,8 +530,12 @@ async def upload_voice_file(
         os.makedirs(upload_dir, exist_ok=True)
         
         # Sanitize filename to prevent path traversal
-        safe_filename = FileValidator.get_safe_filename(file.filename or "audio_upload")
-        file_path = os.path.join(upload_dir, f"{current_session_id}_{safe_filename}")
+        safe_filename = FileValidator.get_safe_filename(
+            file.filename or "audio_upload"
+        )
+        file_path = os.path.join(
+            upload_dir, f"{current_session_id}_{safe_filename}"
+        )
         
         async with aiofiles.open(file_path, 'wb') as f:
             await f.write(content)
@@ -396,8 +544,8 @@ async def upload_voice_file(
         
         # Transcribe the file
         transcription_result = await voice_service.transcribe_audio_file(
-            file_path, 
-            current_session_id, 
+            file_path,
+            current_session_id,
             user_id
         )
         
@@ -406,11 +554,21 @@ async def upload_voice_file(
             os.remove(file_path)
             logger.info(f"Successfully cleaned up temporary file: {file_path}")
         except FileNotFoundError:
-            logger.warning(f"Temporary file not found during cleanup: {file_path}")
+            logger.warning(
+                "Temporary file not found during cleanup: %s",
+                file_path,
+            )
         except PermissionError:
-            logger.error(f"Permission denied when cleaning up temporary file: {file_path}")
+            logger.error(
+                "Permission denied when cleaning up temporary file: %s",
+                file_path,
+            )
         except Exception as e:
-            logger.error(f"Failed to clean up temporary file {file_path}: {str(e)}")
+            logger.error(
+                "Failed to clean up temporary file %s: %s",
+                file_path,
+                str(e),
+            )
         
         # Return transcription result
         return {
@@ -425,7 +583,11 @@ async def upload_voice_file(
         raise
     except Exception as e:
         logger.error(f"Voice file upload failed: {e}")
-        raise HTTPException(status_code=500, detail=f"Voice processing failed: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Voice processing failed: {str(e)}",
+        )
+
 
 @router.get("/health")
 async def voice_health_check():
@@ -439,9 +601,10 @@ async def voice_health_check():
             "voice_service": health_status,
             "endpoints": {
                 "websocket": "/api/voice/stream/{session_id}",
-                "upload": "/api/voice/upload"
-            }
+                "upload": "/api/voice/upload",
+            },
         }
+
     except Exception as e:
         logger.error(f"Voice health check failed: {e}")
         return {

@@ -38,6 +38,8 @@ from api.voice import router as voice_router
 from api.medical_intelligence import router as medical_intelligence_router
 from api.model_selection import router as model_selection_router
 from api.auth import router as auth_router
+from api.clinical_codes import router as clinical_codes_router
+from api.test_voice import router as test_voice_router
 from services.medical_observability import init_medical_observability
 
 logger = logging.getLogger(__name__)
@@ -78,7 +80,8 @@ app.include_router(nhs_router)
 app.include_router(medical_intelligence_router)
 app.include_router(model_selection_router)
 app.include_router(auth_router)
-app.include_router(auth_router)
+app.include_router(clinical_codes_router)
+app.include_router(test_voice_router)
 
 # NHS Service Search endpoints
 @app.get("/api/services/search")
@@ -334,7 +337,7 @@ async def stream_chat_message(
                 chunk_count = 0
                 async for chunk in service.llm.generate_streaming_response(conversation, request.message):
                     chunk_count += 1
-                    logger.info(f"📦 Received chunk #{chunk_count}: {chunk}")
+                    logger.debug(f"📦 Received chunk #{chunk_count}: {chunk}")
                     
                     # Type check: ensure chunk is a dictionary
                     if not isinstance(chunk, dict):
@@ -348,7 +351,9 @@ async def stream_chat_message(
                         return
                     elif chunk.get("type") == "content":
                         text = chunk.get("text", "")
-                        logger.info(f"📝 Content chunk: '{text[:50]}...' ({len(text)} chars)")
+                        # Keep debug concise to satisfy linters
+                        short = text[:50]
+                        logger.debug("chunk: '%s...' (%d chars)", short, len(text))
                         
                         # Check response size limit
                         if len(full_response) + len(text) > MAX_RESPONSE_LENGTH:

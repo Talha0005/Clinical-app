@@ -22,7 +22,12 @@ try:
 
     # Don't set langfuse callback to avoid version conflicts
     # litellm.success_callback = ["langfuse"]
-    litellm.set_verbose = True
+    # Reduce LiteLLM verbosity to avoid flooding logs during streaming
+    try:
+        litellm.set_verbose = False
+    except Exception:
+        # Older versions may not expose this property; ignore silently
+        pass
 except ImportError:
     print("Warning: LiteLLM not installed. Install with: pip install litellm")
 

@@ -13,16 +13,23 @@ interface Message {
   content: string;
   sender: "doctor" | "user";
   timestamp: string;
+  avatar?: string;
+  clinicalCodes?: Array<{ code: string; system: string; display: string }>;
 }
 
 export const DigiClinic = () => {
   const { token } = useAuth();
+  // Local, non-breaking flags
+  const SHOW_CODES_FOR_CHAT = true; // attach codes to doctor replies for typed chat
+  const DEFAULT_AVATAR = "dr_hervix"; // seed for doctor avatar image
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "welcome",
       content: "Good afternoon! I'm Dr. Hervix, your digital GP consultant. I'm here to help you with any medical concerns you may have. Before we begin, please note that this is a consultation tool to help assess your symptoms and provide guidance. For emergencies, please call 999 immediately. How can I help you today?",
       sender: "doctor",
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      // Ensure the initial doctor message has an avatar seed
+      avatar: DEFAULT_AVATAR,
     }
   ]);
   const [isTyping, setIsTyping] = useState(false);
@@ -30,6 +37,7 @@ export const DigiClinic = () => {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [assistantSpeaking, setAssistantSpeaking] = useState<boolean>(false);
   const [userSpeaking, setUserSpeaking] = useState<boolean>(false);
+  const [sending, setSending] = useState<boolean>(false);
 
   // Model selection state
   // Align with backend enum ModelProvider values (use supported Sonnet ID: 20240620)
@@ -111,8 +119,32 @@ export const DigiClinic = () => {
     }
   };
 
+  const handleVoiceAIResponse = useCallback((response: string, meta?: any) => {
+    // Add AI response message from voice input
+    const aiMessage: Message = {
+      id: Date.now().toString(),
+      content: `🎤 ${response}`,
+      sender: "doctor",
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      avatar: meta?.avatar,
+      clinicalCodes: Array.isArray(meta?.clinical?.codes) ? meta.clinical.codes : undefined,
+    };
 
-  const handleSendMessage = async (content: string) => {
+    setMessages(prev => [...prev, aiMessage]);
+    
+    // Show that the AI has responded to voice
+    toast({
+      title: "Voice AI Response",
+      description: "Dr. Hervix has responded to your voice message",
+    });
+  }, []);
+
+  const handleSendMessage = useCallback(async (content: string) => {
+    if (sending) return; // prevent overlapping sends
+    setSending(true);
+    // Basic guard: ignore accidental empty/whitespace messages
+    if (!content || !content.trim()) return;
+
     // Add user message
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -136,7 +168,8 @@ export const DigiClinic = () => {
         id: streamingMessageId,
         content: "",
         sender: "doctor",
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        avatar: DEFAULT_AVATAR,
       };
       
       setMessages(prev => [...prev, streamingMessage]);
@@ -201,15 +234,50 @@ export const DigiClinic = () => {
                 ));
               } else if (data.type === 'complete') {
                 // Final update with complete response
-                setMessages(prev => prev.map(msg => 
-                  msg.id === streamingMessageId 
-                    ? { ...msg, content: data.full_response }
-                    : msg
-                ));
+                setMessages(prev => {
+                  return prev.map(msg =>
+                    msg.id === streamingMessageId
+                      ? { ...msg, content: data.full_response }
+                      : msg
+                  );
+                });
                 if (data.conversation_id && !conversationId) {
                   setConversationId(data.conversation_id);
                 }
                 setAssistantSpeaking(false);
+
+                // Optionally attach clinical codes for the user's prompt
+                if (SHOW_CODES_FOR_CHAT && token) {
+                  try {
+                    const resp = await apiFetch('/api/clinical/quick-code', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      auth: true,
+                      token,
+                      body: JSON.stringify({ symptom: content })
+                    });
+                    if (resp.ok) {
+                      const payload = await resp.json().catch(() => null);
+                      const raw = payload?.primary_codes as any[];
+                      const codes = Array.isArray(raw)
+                        ? raw
+                            .map((c: any) => ({
+                              code: c?.code ?? '',
+                              system: c?.system ?? '',
+                              display: c?.display ?? '',
+                            }))
+                            .filter((c) => c.code && c.display)
+                        : [];
+                      if (codes.length > 0) {
+                        setMessages(prev => prev.map(msg =>
+                          msg.id === streamingMessageId ? { ...msg, clinicalCodes: codes } : msg
+                        ));
+                      }
+                    }
+                  } catch (e) {
+                    // Non-fatal; ignore
+                  }
+                }
               } else if (data.error) {
                 throw new Error(data.error);
               }
@@ -243,8 +311,10 @@ export const DigiClinic = () => {
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         }];
       });
+    } finally {
+      setSending(false);
     }
-  };
+  }, [token, conversationId, currentModel, sending]);
 
   return (
     <div className="h-screen flex flex-col bg-medical-bg">
@@ -265,6 +335,9 @@ export const DigiClinic = () => {
               message={message.content}
               sender={message.sender}
               timestamp={message.timestamp}
+              // Always provide a doctor avatar seed so it consistently renders
+              avatar={message.sender === 'doctor' ? (message.avatar ?? DEFAULT_AVATAR) : undefined}
+              clinicalCodes={message.clinicalCodes}
             />
           ))}
 
@@ -288,11 +361,12 @@ export const DigiClinic = () => {
 
       <ChatInput
         onSendMessage={handleSendMessage}
-        disabled={isTyping}
+        disabled={isTyping || sending || assistantSpeaking}
         currentModel={currentModel}
         conversationId={conversationId || 'default'}
         onModelSelect={handleModelSelect}
         onVoiceStateChange={({ recording, transcribing }) => setUserSpeaking(recording || transcribing)}
+        onVoiceAIResponse={handleVoiceAIResponse}
       />
     </div>
   );

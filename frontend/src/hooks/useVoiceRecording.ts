@@ -8,12 +8,16 @@ export interface VoiceRecordingState {
   isTranscribing: boolean;
   error: string | null;
   transcription: string;
+  llmResponse: string | null;
+  llmMeta: any | null;
+  isGeneratingResponse: boolean;
 }
 
 export interface VoiceRecordingControls {
   startRecording: () => Promise<void>;
   stopRecording: () => void;
   clearTranscription: () => void;
+  clearLlmResponse: () => void;
 }
 
 export const useVoiceRecording = (): VoiceRecordingState & VoiceRecordingControls => {
@@ -23,7 +27,10 @@ export const useVoiceRecording = (): VoiceRecordingState & VoiceRecordingControl
     isConnecting: false,
     isTranscribing: false,
     error: null,
-    transcription: ''
+    transcription: '',
+    llmResponse: null,
+    llmMeta: null,
+    isGeneratingResponse: false
   });
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -121,6 +128,17 @@ export const useVoiceRecording = (): VoiceRecordingState & VoiceRecordingControl
               isRecording: true 
             }));
             toast({ title: 'Listening', description: 'Start speaking… 🎙️' });
+            // Enable optional clinical codes + avatar display per session
+            try {
+              ws.send(JSON.stringify({
+                type: 'config',
+                config: {
+                  include_codes: true,
+                  include_avatar: true,
+                  avatar: 'dr_hervix'
+                }
+              }));
+            } catch {}
             startAudioRecording();
           } else if (data.type === 'partial_transcript') {
             setState(prev => ({ 
@@ -132,9 +150,25 @@ export const useVoiceRecording = (): VoiceRecordingState & VoiceRecordingControl
             setState(prev => ({ 
               ...prev, 
               transcription: data.text,
-              isTranscribing: false 
+              isTranscribing: false,
+              isGeneratingResponse: true 
             }));
+            toast({ title: 'Voice', description: 'Generating AI response...' });
             // Do NOT close immediately here; wait for server 'completed'
+          } else if (data.type === 'llm_response') {
+            setState(prev => ({ 
+              ...prev, 
+              llmResponse: data.response,
+              llmMeta: {
+                avatar: data.avatar,
+                clinical: data.clinical
+              },
+              isGeneratingResponse: false 
+            }));
+            toast({ 
+              title: 'AI Response Ready', 
+              description: `Response generated using ${data.model_used || 'AI model'}` 
+            });
           } else if (data.type === 'status') {
             // Show human-friendly status messages
             if (data.status === 'no_api_key') {
@@ -295,6 +329,8 @@ export const useVoiceRecording = (): VoiceRecordingState & VoiceRecordingControl
         window.clearTimeout(pendingCloseRef.current);
         pendingCloseRef.current = null;
       }
+      // Increase fallback wait to allow server to flush final transcript and generate LLM response
+      // Real-world latency (ASR flush + LLM) can exceed 3s; give it up to 15s before forcing close
       pendingCloseRef.current = window.setTimeout(() => {
         if (awaitingCompletedRef.current) {
           try { websocketRef.current?.close(); } catch {}
@@ -305,7 +341,7 @@ export const useVoiceRecording = (): VoiceRecordingState & VoiceRecordingControl
           window.clearTimeout(pendingCloseRef.current);
           pendingCloseRef.current = null;
         }
-      }, 3000);
+      }, 15000);
     }
 
     // Disconnect audio nodes
@@ -334,10 +370,15 @@ export const useVoiceRecording = (): VoiceRecordingState & VoiceRecordingControl
     setState(prev => ({ ...prev, transcription: '', error: null }));
   }, []);
 
+  const clearLlmResponse = useCallback(() => {
+    setState(prev => ({ ...prev, llmResponse: null, llmMeta: null, isGeneratingResponse: false }));
+  }, []);
+
   return {
     ...state,
     startRecording,
     stopRecording,
-    clearTranscription
+    clearTranscription,
+    clearLlmResponse
   };
 };
