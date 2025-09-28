@@ -34,4 +34,12 @@ class AvatarAgent(Agent):
             {"role": "user", "content": user_text},
         ]
         reply = llm(messages)  # llm must return plain text
-        return AgentResult(text=reply, data={}, avatar="dr_hervix")
+        return AgentResult(
+            text=reply, 
+            data={
+                "agent": "avatar",
+                "processed_text": user_text,
+                "empathetic_response": reply
+            }, 
+            avatar="dr_hervix"
+        )

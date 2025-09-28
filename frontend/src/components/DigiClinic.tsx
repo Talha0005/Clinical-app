@@ -3,6 +3,7 @@ import { MedicalHeader } from "./MedicalHeader";
 import { MedicalDisclaimer } from "./MedicalDisclaimer";
 import { ChatMessage } from "./ChatMessage";
 import { ChatInput } from "./ChatInput";
+import { AvatarAgent } from "./AvatarAgent";
 import { useAuth } from "../hooks/useAuth";
 import { apiFetch } from "@/lib/api";
 import { toast } from "@/hooks/use-toast";
@@ -38,6 +39,17 @@ export const DigiClinic = () => {
   const [assistantSpeaking, setAssistantSpeaking] = useState<boolean>(false);
   const [userSpeaking, setUserSpeaking] = useState<boolean>(false);
   const [sending, setSending] = useState<boolean>(false);
+  
+  // Agent chain state
+  const [agentProgress, setAgentProgress] = useState<Array<{
+    id: string;
+    name: string;
+    status: 'pending' | 'active' | 'completed' | 'error';
+    icon: React.ReactNode;
+    description: string;
+  }>>([]);
+  const [currentAgent, setCurrentAgent] = useState<string>('');
+  const [isAgentProcessing, setIsAgentProcessing] = useState<boolean>(false);
 
   // Model selection state
   // Align with backend enum ModelProvider values (use supported Sonnet ID: 20240620)
@@ -155,6 +167,40 @@ export const DigiClinic = () => {
     };
 
     setMessages(prev => [...prev, userMessage]);
+    
+    // Initialize agent chain
+    setIsAgentProcessing(true);
+    setAgentProgress([
+      {
+        id: 'avatar',
+        name: 'Avatar',
+        status: 'active',
+        icon: <div className="h-4 w-4 rounded-full bg-blue-500" />,
+        description: 'Understanding your message'
+      },
+      {
+        id: 'history',
+        name: 'History Taking',
+        status: 'pending',
+        icon: <div className="h-4 w-4 rounded-full bg-gray-300" />,
+        description: 'Collecting medical history'
+      },
+      {
+        id: 'triage',
+        name: 'Symptom Triage',
+        status: 'pending',
+        icon: <div className="h-4 w-4 rounded-full bg-gray-300" />,
+        description: 'Assessing urgency'
+      },
+      {
+        id: 'summarisation',
+        name: 'Summarisation',
+        status: 'pending',
+        icon: <div className="h-4 w-4 rounded-full bg-gray-300" />,
+        description: 'Creating summary'
+      }
+    ]);
+    setCurrentAgent('Avatar');
     setIsTyping(true);
 
     try {
@@ -226,6 +272,18 @@ export const DigiClinic = () => {
               if (data.type === 'start' && data.conversation_id && !conversationIdRef.current) {
                 conversationIdRef.current = data.conversation_id;
                 setConversationId(data.conversation_id);
+              } else if (data.type === 'agent_progress') {
+                // Update agent progress
+                setAgentProgress(prev => prev.map(agent => {
+                  if (agent.id === data.agent) {
+                    return {
+                      ...agent,
+                      status: data.status as 'pending' | 'active' | 'completed' | 'error'
+                    };
+                  }
+                  return agent;
+                }));
+                setCurrentAgent(data.status === 'active' ? data.agent : '');
               } else if (data.type === 'content') {
                 // Update the streaming message with new content
                 setMessages(prev => prev.map(msg => 
@@ -246,6 +304,18 @@ export const DigiClinic = () => {
                   setConversationId(data.conversation_id);
                 }
                 setAssistantSpeaking(false);
+                
+                // Complete agent chain with delay
+                setAgentProgress(prev => prev.map(agent => ({
+                  ...agent,
+                  status: 'completed' as const
+                })));
+                
+                // Keep progress visible for 3 seconds after completion
+                setTimeout(() => {
+                  setIsAgentProcessing(false);
+                  setCurrentAgent('');
+                }, 3000);
 
                 // Optionally attach clinical codes for the user's prompt
                 if (SHOW_CODES_FOR_CHAT && token) {
@@ -301,6 +371,8 @@ export const DigiClinic = () => {
       toast({ title: 'Chat error', description: error?.message || 'Please try again.', variant: 'destructive' });
       setIsTyping(false);
       setAssistantSpeaking(false);
+      setIsAgentProcessing(false);
+      setCurrentAgent('');
       
       // Remove any incomplete streaming message and add error
       setMessages(prev => {
@@ -324,13 +396,13 @@ export const DigiClinic = () => {
 
 
       <div className="flex-1 overflow-y-auto pb-6">
-        {/* Speaking avatars indicator */}
+        {/* Simple avatar indicator */}
         <div className="max-w-4xl mx-auto px-4 mt-2 mb-1 flex items-center justify-between">
           <AvatarBubble initials="DH" label="Dr. Hervix" isSpeaking={assistantSpeaking} colorClass="bg-medical-blue" />
           <AvatarBubble initials="You" label={userSpeaking ? 'Speaking…' : undefined} isSpeaking={userSpeaking} colorClass="bg-gray-500" />
         </div>
         <div className="space-y-1 pt-4">
-          {messages.map((message) => (
+          {messages.map((message, index) => (
             <ChatMessage
               key={message.id}
               message={message.content}
@@ -339,6 +411,10 @@ export const DigiClinic = () => {
               // Always provide a doctor avatar seed so it consistently renders
               avatar={message.sender === 'doctor' ? (message.avatar ?? DEFAULT_AVATAR) : undefined}
               clinicalCodes={message.clinicalCodes}
+              // Show agent progress for the last doctor message when processing
+              showAgentProgress={message.sender === 'doctor' && isAgentProcessing && index === messages.length - 1}
+              agentProgress={agentProgress}
+              currentAgent={currentAgent}
             />
           ))}
 

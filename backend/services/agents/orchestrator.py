@@ -27,26 +27,43 @@ class Orchestrator:
         *,
         ctx: Optional[AgentContext] = None,
         llm: Optional[LLMFunc] = None,
+        progress_callback: Optional[Callable[[str, str], None]] = None,
     ) -> AgentResult:
         ctx = ctx or AgentContext()
 
         # 1) Avatar phrasing (conversational layer)
+        if progress_callback:
+            progress_callback("avatar", "active")
         avatar_res = self.avatar.run(ctx, user_text, llm=llm)
+        if progress_callback:
+            progress_callback("avatar", "completed")
 
         # 2) History collection (structured)
-        history_res = self.history.run(ctx, user_text, llm=None)
+        if progress_callback:
+            progress_callback("history", "active")
+        history_res = self.history.run(ctx, user_text, llm=llm)
+        if progress_callback:
+            progress_callback("history", "completed")
 
         # 3) Triage (safety-first)
-        triage_res = self.triage.run(ctx, user_text, llm=None)
+        if progress_callback:
+            progress_callback("triage", "active")
+        triage_res = self.triage.run(ctx, user_text, llm=llm)
+        if progress_callback:
+            progress_callback("triage", "completed")
 
         # 4) Summarisation (patient + clinician outputs)
+        if progress_callback:
+            progress_callback("summarisation", "active")
         summary_res = self.summarise.run(
             ctx,
             user_text,
-            llm=None,
+            llm=llm,
             triage=triage_res.data,
             history=history_res.data,
         )
+        if progress_callback:
+            progress_callback("summarisation", "completed")
 
         # Compose final result: use Avatar text (empathetic) with summary meta
         final = AgentResult(

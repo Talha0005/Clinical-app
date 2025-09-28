@@ -548,13 +548,29 @@ async def chat_with_model_stream(
                         logger.error(f"❌ LLM wrapper failed: {e}")
                         return "I apologize, but I'm having trouble generating a response right now."
                 
+                # Progress callback for real-time updates
+                progress_updates = []
+                def progress_callback(agent_name, status):
+                    logger.info(f"🔄 Agent {agent_name}: {status}")
+                    # Store progress update for later streaming
+                    progress_updates.append({
+                        "type": "agent_progress",
+                        "agent": agent_name,
+                        "status": status
+                    })
+                
                 agent_out = orch.handle_turn(
                     request.message,
                     ctx=AgentContext(user_id=current_user),
                     llm=llm_wrapper,
+                    progress_callback=progress_callback,
                 )
                 logger.info(f"🤖 Agent chain completed. Response: {agent_out.text[:100] if agent_out.text else 'None'}...")
                 content = agent_out.text or ""
+
+                # Stream progress updates first
+                for progress in progress_updates:
+                    yield f"data: {json.dumps(progress)}\n\n"
 
                 # Stream minimal content (single burst) for smooth UI
                 evt = {"type": "content", "text": content}

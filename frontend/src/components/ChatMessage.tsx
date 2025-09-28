@@ -6,9 +6,18 @@ interface ChatMessageProps {
   timestamp?: string;
   avatar?: string;
   clinicalCodes?: Array<{ code: string; system: string; display: string }>;
+  showAgentProgress?: boolean;
+  agentProgress?: Array<{
+    id: string;
+    name: string;
+    status: 'pending' | 'active' | 'completed' | 'error';
+    icon: React.ReactNode;
+    description: string;
+  }>;
+  currentAgent?: string;
 }
 
-export const ChatMessage = ({ message, sender, timestamp, avatar, clinicalCodes }: ChatMessageProps) => {
+export const ChatMessage = ({ message, sender, timestamp, avatar, clinicalCodes, showAgentProgress, agentProgress, currentAgent }: ChatMessageProps) => {
   const isDoctor = sender === "doctor";
 
   // Create a deterministic inline SVG avatar so it always renders.
@@ -105,6 +114,54 @@ export const ChatMessage = ({ message, sender, timestamp, avatar, clinicalCodes 
           <span className="text-xs text-medical-text-muted mt-1 px-1">
             {timestamp}
           </span>
+        )}
+        
+        {/* Agent Progress for Doctor Messages */}
+        {isDoctor && showAgentProgress && agentProgress && (
+          <div className="mt-3 max-w-sm">
+            <div className="bg-white rounded-lg border border-gray-200 p-3 shadow-sm">
+              <h4 className="font-medium text-sm text-gray-700 mb-2">Processing your request...</h4>
+              <div className="space-y-2">
+                {agentProgress.map((agent) => (
+                  <div key={agent.id} className="flex items-center space-x-2">
+                    <div className="flex-shrink-0">
+                      {agent.status === 'completed' ? (
+                        <div className="h-3 w-3 rounded-full bg-green-500" />
+                      ) : agent.status === 'active' ? (
+                        <div className="h-3 w-3 rounded-full bg-blue-500 animate-pulse" />
+                      ) : (
+                        <div className="h-3 w-3 rounded-full border-2 border-gray-300" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center space-x-2">
+                        <span className="text-xs font-medium text-gray-900">
+                          {agent.name}
+                        </span>
+                        <span className={`text-xs px-1.5 py-0.5 rounded-full ${
+                          agent.status === 'completed' ? 'bg-green-100 text-green-800' :
+                          agent.status === 'active' ? 'bg-blue-100 text-blue-800' :
+                          'bg-gray-100 text-gray-600'
+                        }`}>
+                          {agent.status}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-500">
+                        {agent.description}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {currentAgent && (
+                <div className="mt-2 text-center">
+                  <span className="text-xs text-blue-600 font-medium">
+                    Currently: {currentAgent}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
         )}
       </div>
     </div>
