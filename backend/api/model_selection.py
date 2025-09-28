@@ -2,19 +2,43 @@
 API endpoints for model selection and switching
 """
 
-from fastapi import APIRouter, HTTPException, Depends, status
+from fastapi import APIRouter, HTTPException, Depends, status, UploadFile, File, Form
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, validator
 from typing import Optional, List
 import json
+import os
+import logging
 
 from auth import verify_token as verify_jwt_token
 from services.model_abstraction_layer import (
     get_model_abstraction_layer,
     ModelProvider,
 )
+from services.agents import (
+    Orchestrator,
+    AgentContext,
+)
+from services.vision_processing import MedicalVisionService, AnalysisLevel  # safe import; unused when flag is off
+from services.direct_llm_service import direct_llm_service
+
+# Lazy local .env load (no-op if already loaded by services)
+# This helps when this module is imported in isolation and
+# ensures AGENTS_ENABLED is available without disturbing globals.
+try:
+    if "AGENTS_ENABLED" not in os.environ:
+        from pathlib import Path
+        from dotenv import load_dotenv  # type: ignore
+        backend_dir = Path(__file__).resolve().parent.parent
+        env_path = backend_dir / ".env"
+        if env_path.exists():
+            load_dotenv(dotenv_path=env_path)
+except Exception:
+    # Safe fallback: simply proceed with current environment
+    pass
 
 router = APIRouter(prefix="/api/models", tags=["Model Selection"])
+logger = logging.getLogger(__name__)
 
 
 class ModelListRequest(BaseModel):
@@ -189,6 +213,29 @@ class AvailableModelsQuery(BaseModel):
         return v
 
 
+@router.get("/agent/health")
+async def agent_health(
+    current_user: str = Depends(verify_jwt_token)  # type: ignore[arg-type]
+):
+    """Lightweight diagnostics for the agent flag and orchestrator import.
+
+    This does not change any behavior; it simply reports whether the agent
+    would be considered enabled in this running process.
+    """
+    try:
+        raw = os.getenv("AGENTS_ENABLED", "false") or "false"
+        enabled = raw.strip().lower() in {"1", "true", "yes", "y", "on"}
+        # Basic import check
+        orch_ok = Orchestrator is not None  # type: ignore[name-defined]
+        return {
+            "agents_enabled": enabled,
+            "env_value": raw,
+            "orchestrator_loaded": orch_ok,
+        }
+    except Exception as e:
+        return {"agents_enabled": False, "error": str(e)}
+
+
 @router.get("/available")
 async def get_available_models(
     query: AvailableModelsQuery = Depends(),
@@ -361,18 +408,64 @@ async def chat_with_model(
     try:
         abstraction_layer = get_model_abstraction_layer()
 
-        # Process with optional model override
-        response = await abstraction_layer.process_message(
-            message=request.message,
-            conversation_id=request.conversation_id,
-            model_override=request.model_id
-        )
-
-        return {
-            "response": response["content"],
-            "model_used": response["model"],
-            "conversation_id": request.conversation_id
+        flag_val = os.getenv("AGENTS_ENABLED", "false") or "false"
+        agents_enabled = flag_val.strip().lower() in {
+            "1",
+            "true",
+            "yes",
+            "y",
+            "on",
         }
+        logger.info("/api/models/chat -> agents_enabled=%s", agents_enabled)
+
+        if agents_enabled:
+            logger.info(f"🤖 Starting agent chain for message: {request.message[:100]}...")
+            orch = Orchestrator()
+            
+            # Create LLM wrapper for agents
+            def llm_wrapper(messages):
+                try:
+                    logger.info(f"🧠 LLM wrapper called with {len(messages)} messages")
+                    # Use synchronous call for now
+                    import asyncio
+                    from services.direct_llm_service import direct_llm_service
+                    response = asyncio.run(direct_llm_service.generate_response(
+                        messages=messages,
+                        model_preference="anthropic"
+                    ))
+                    content = response.get("content", "I apologize, but I'm having trouble generating a response right now.")
+                    logger.info(f"🧠 LLM response: {content[:100]}...")
+                    return content
+                except Exception as e:
+                    logger.error(f"❌ LLM wrapper failed: {e}")
+                    return "I apologize, but I'm having trouble generating a response right now."
+            
+            agent_out = orch.handle_turn(
+                request.message,
+                ctx=AgentContext(user_id=current_user),
+                llm=llm_wrapper,
+            )
+            logger.info(f"🤖 Agent chain completed. Response: {agent_out.text[:100] if agent_out.text else 'None'}...")
+            return {
+                "response": agent_out.text,
+                "model_used": "agentic/orchestrator",
+                "conversation_id": request.conversation_id,
+                "agent": agent_out.data,
+                "avatar": agent_out.avatar,
+            }
+        else:
+            # Process with optional model override
+            response = await abstraction_layer.process_message(
+                message=request.message,
+                conversation_id=request.conversation_id,
+                model_override=request.model_id
+            )
+
+            return {
+                "response": response["content"],
+                "model_used": response["model"],
+                "conversation_id": request.conversation_id
+            }
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -399,30 +492,166 @@ async def chat_with_model_stream(
             }
             yield f"data: {json.dumps(start_evt)}\n\n"
 
-            response = await abstraction_layer.process_message(
-                message=request.message,
-                conversation_id=request.conversation_id,
-                model_override=request.model_id
+            # Toggle agentic chain via environment flag - ENABLED for agent testing
+            flag_val = os.getenv("AGENTS_ENABLED", "false") or "false"
+            agents_enabled = True  # Enable agents to test the full chain
+            logger.info(
+                "/api/models/chat/stream -> agents_enabled=%s",
+                agents_enabled,
             )
 
-            content = response["content"]
+            if agents_enabled:
+                # Run the MVP chain: Avatar → History → Triage → Summarisation
+                logger.info(f"🤖 Starting agent chain for message: {request.message[:100]}...")
+                orch = Orchestrator()
+                
+                # Create LLM wrapper for agents
+                def llm_wrapper(messages):
+                    try:
+                        logger.info(f"🧠 LLM wrapper called with {len(messages)} messages")
+                        # Use synchronous call for now
+                        import asyncio
+                        import threading
+                        from services.direct_llm_service import direct_llm_service
+                        
+                        # Run in a separate thread to avoid event loop conflicts
+                        result = [None]
+                        exception = [None]
+                        
+                        def run_llm():
+                            try:
+                                loop = asyncio.new_event_loop()
+                                asyncio.set_event_loop(loop)
+                                try:
+                                    response = loop.run_until_complete(direct_llm_service.generate_response(
+                                        messages=messages,
+                                        model_preference="anthropic"
+                                    ))
+                                    result[0] = response
+                                finally:
+                                    loop.close()
+                            except Exception as e:
+                                exception[0] = e
+                        
+                        thread = threading.Thread(target=run_llm)
+                        thread.start()
+                        thread.join()
+                        
+                        if exception[0]:
+                            raise exception[0]
+                            
+                        response = result[0]
+                        content = response.get("content", "I apologize, but I'm having trouble generating a response right now.")
+                        logger.info(f"🧠 LLM response: {content[:100]}...")
+                        return content
+                    except Exception as e:
+                        logger.error(f"❌ LLM wrapper failed: {e}")
+                        return "I apologize, but I'm having trouble generating a response right now."
+                
+                agent_out = orch.handle_turn(
+                    request.message,
+                    ctx=AgentContext(user_id=current_user),
+                    llm=llm_wrapper,
+                )
+                logger.info(f"🤖 Agent chain completed. Response: {agent_out.text[:100] if agent_out.text else 'None'}...")
+                content = agent_out.text or ""
 
-            # Stream the response in larger chunks
-            # to reduce UI update frequency
-            chunk_size = 200  # fewer events, smoother UI
-            for i in range(0, len(content), chunk_size):
-                chunk = content[i:i+chunk_size]
-                evt = {"type": "content", "text": chunk}
+                # Stream minimal content (single burst) for smooth UI
+                evt = {"type": "content", "text": content}
                 yield f"data: {json.dumps(evt)}\n\n"
 
-            # Yield a final 'complete' event with the full response
-            # (single finalize)
-            complete_evt = {
-                "type": "complete",
-                "full_response": content,
-                "conversation_id": request.conversation_id,
-            }
-            yield f"data: {json.dumps(complete_evt)}\n\n"
+                # Finalize with agent meta (frontend ignores
+                # unknown fields safely)
+                complete_evt = {
+                    "type": "complete",
+                    "full_response": content,
+                    "conversation_id": request.conversation_id,
+                    "model_used": "agentic/orchestrator",
+                    "agent_enabled": True,
+                    "agent": agent_out.data,
+                    "avatar": agent_out.avatar,
+                }
+                yield f"data: {json.dumps(complete_evt)}\n\n"
+            else:
+                # Use Direct LLM Service for real AI responses
+                from services.direct_llm_service import direct_llm_service
+                
+                messages = [{"role": "user", "content": request.message}]
+                
+                try:
+                    direct_response = await direct_llm_service.generate_response(
+                        messages=messages,
+                        model_preference="anthropic"
+                    )
+                    
+                    if direct_response and direct_response.get("content"):
+                        content = direct_response["content"]
+                        model_used = direct_response.get("model_used", "anthropic/claude-3-5-sonnet-20240620")
+                        
+                        # Stream the response in chunks
+                        chunk_size = 200
+                        for i in range(0, len(content), chunk_size):
+                            chunk = content[i:i+chunk_size]
+                            evt = {"type": "content", "text": chunk}
+                            yield f"data: {json.dumps(evt)}\n\n"
+
+                        # Yield final complete event
+                        complete_evt = {
+                            "type": "complete",
+                            "full_response": content,
+                            "conversation_id": request.conversation_id,
+                            "model_used": model_used,
+                            "agent_enabled": False,
+                        }
+                        yield f"data: {json.dumps(complete_evt)}\n\n"
+                    else:
+                        # Fallback to abstraction layer if direct service fails
+                        response = await abstraction_layer.process_message(
+                            message=request.message,
+                            conversation_id=request.conversation_id,
+                            model_override=request.model_id
+                        )
+                        content = response["content"]
+                        
+                        chunk_size = 200
+                        for i in range(0, len(content), chunk_size):
+                            chunk = content[i:i+chunk_size]
+                            evt = {"type": "content", "text": chunk}
+                            yield f"data: {json.dumps(evt)}\n\n"
+
+                        complete_evt = {
+                            "type": "complete",
+                            "full_response": content,
+                            "conversation_id": request.conversation_id,
+                            "model_used": response.get("model"),
+                            "agent_enabled": False,
+                        }
+                        yield f"data: {json.dumps(complete_evt)}\n\n"
+                        
+                except Exception as e:
+                    logger.error(f"Direct LLM service failed: {e}")
+                    # Fallback to abstraction layer
+                    response = await abstraction_layer.process_message(
+                        message=request.message,
+                        conversation_id=request.conversation_id,
+                        model_override=request.model_id
+                    )
+                content = response["content"]
+
+                chunk_size = 200
+                for i in range(0, len(content), chunk_size):
+                    chunk = content[i:i+chunk_size]
+                    evt = {"type": "content", "text": chunk}
+                    yield f"data: {json.dumps(evt)}\n\n"
+
+                complete_evt = {
+                    "type": "complete",
+                    "full_response": content,
+                    "conversation_id": request.conversation_id,
+                    "model_used": response.get("model"),
+                    "agent_enabled": False,
+                }
+                yield f"data: {json.dumps(complete_evt)}\n\n"
 
         except Exception as e:
             # Yield an error event if something goes wrong
@@ -467,19 +696,223 @@ async def get_model_performance(
         )
 
 
-@router.get("/current")
-async def get_current_model(
-    current_user: str = Depends(verify_jwt_token)  # type: ignore[arg-type]
+@router.post("/chat/with-images")
+async def chat_with_model_and_images(
+    message: str = Form(..., description="Chat message content"),
+    conversation_id: str = Form(..., description="Conversation identifier"),
+    model_id: Optional[str] = Form(None, description="Optional model override"),
+    images: List[UploadFile] = File(None, description="Multiple image files"),
+    current_user: str = Depends(verify_jwt_token)
 ):
     """
-    Get the currently selected AI model.
+    Chat with a specific AI model including multiple images.
     """
     try:
         abstraction_layer = get_model_abstraction_layer()
-        current_model = abstraction_layer.get_current_model()
-        return {"model": current_model}
+
+        # Process images if provided
+        image_analyses = []
+        if images:
+            # Initialize vision service
+            from services.llm_router import DigiClinicLLMRouter
+            from services.nhs_terminology import NHSTerminologyService
+            llm_router = DigiClinicLLMRouter()
+            nhs_term = NHSTerminologyService()
+            vision_service = MedicalVisionService(llm_router, nhs_term)
+            
+            for i, image in enumerate(images):
+                try:
+                    image_data = await image.read()
+                    analysis = await vision_service.process_medical_image(
+                        image_data=image_data,
+                        filename=image.filename or f"image_{i+1}.jpg",
+                        analysis_level=AnalysisLevel.CLINICAL,
+                        patient_id=None,
+                        patient_context={}
+                    )
+                    # Extract the description or summary
+                    analysis_text = analysis.get("description", "No description available")
+                    image_analyses.append(f"Image {i+1} ({image.filename}): {analysis_text}")
+                except Exception as e:
+                    logger.warning(f"Failed to analyze image {i+1}: {e}")
+                    image_analyses.append(f"Image {i+1} ({image.filename}): Analysis failed - {str(e)}")
+        
+        # Combine message with image analyses
+        full_message = message
+        if image_analyses:
+            full_message += "\n\nImage Analyses:\n" + "\n".join(image_analyses)
+
+        flag_val = os.getenv("AGENTS_ENABLED", "false") or "false"
+        agents_enabled = flag_val.strip().lower() in {
+            "1", "true", "yes", "y", "on",
+        }
+        logger.info("/api/models/chat/with-images -> agents_enabled=%s, images=%d", agents_enabled, len(images) if images else 0)
+
+        if agents_enabled:
+            orch = Orchestrator()
+            agent_out = orch.handle_turn(
+                full_message,
+                ctx=AgentContext(user_id=current_user),
+                llm=None,
+            )
+            return {
+                "response": agent_out.text,
+                "model_used": "agentic/orchestrator",
+                "conversation_id": conversation_id,
+                "agent": agent_out.data,
+                "avatar": agent_out.avatar,
+                "images_processed": len(images) if images else 0,
+            }
+        else:
+            # Process with optional model override
+            response = await abstraction_layer.process_message(
+                message=full_message,
+                conversation_id=conversation_id,
+                model_override=model_id
+            )
+
+            return {
+                "response": response["content"],
+                "model_used": response["model"],
+                "conversation_id": conversation_id,
+                "images_processed": len(images) if images else 0,
+            }
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to get current model: {str(e)}"
+            detail=f"Chat with images failed: {str(e)}"
+        )
+
+
+@router.post("/chat/stream/with-images")
+async def chat_with_model_stream_and_images(
+    message: str = Form(..., description="Chat message content"),
+    conversation_id: str = Form(..., description="Conversation identifier"),
+    model_id: Optional[str] = Form(None, description="Optional model override"),
+    images: List[UploadFile] = File(None, description="Multiple image files"),
+    current_user: str = Depends(verify_jwt_token)
+):
+    """
+    Stream chat response from selected model with multiple images.
+    """
+    async def generate():
+        try:
+            abstraction_layer = get_model_abstraction_layer()
+
+            # Yield a start event with conversation_id
+            start_evt = {
+                "type": "start",
+                "conversation_id": conversation_id,
+                "images_processing": len(images) if images else 0,
+            }
+            yield f"data: {json.dumps(start_evt)}\n\n"
+
+            # Process images if provided
+            image_analyses = []
+            if images:
+                # Initialize vision service
+                from services.llm_router import DigiClinicLLMRouter
+                from services.nhs_terminology import NHSTerminologyService
+                llm_router = DigiClinicLLMRouter()
+                nhs_term = NHSTerminologyService()
+                vision_service = MedicalVisionService(llm_router, nhs_term)
+                
+                for i, image in enumerate(images):
+                    try:
+                        image_data = await image.read()
+                        analysis = await vision_service.process_medical_image(
+                            image_data=image_data,
+                            filename=image.filename or f"image_{i+1}.jpg",
+                            analysis_level=AnalysisLevel.CLINICAL,
+                            patient_id=None,
+                            patient_context={}
+                        )
+                        # Extract the description or summary
+                        analysis_text = analysis.get("description", "No description available")
+                        image_analyses.append(f"Image {i+1} ({image.filename}): {analysis_text}")
+                    except Exception as e:
+                        logger.warning(f"Failed to analyze image {i+1}: {e}")
+                        image_analyses.append(f"Image {i+1} ({image.filename}): Analysis failed - {str(e)}")
+
+            # Combine message with image analyses
+            full_message = message
+            if image_analyses:
+                full_message += "\n\nImage Analyses:\n" + "\n".join(image_analyses)
+
+            # Toggle agentic chain via environment flag
+            flag_val = os.getenv("AGENTS_ENABLED", "false") or "false"
+            agents_enabled = flag_val.strip().lower() in {
+                "1", "true", "yes", "y", "on",
+            }
+            logger.info(
+                "/api/models/chat/stream/with-images -> agents_enabled=%s, images=%d",
+                agents_enabled, len(images) if images else 0
+            )
+
+            if agents_enabled:
+                # Run the MVP chain: Avatar → History → Triage → Summarisation
+                orch = Orchestrator()
+                agent_out = orch.handle_turn(
+                    full_message,
+                    ctx=AgentContext(user_id=current_user),
+                    llm=None,
+                )
+                content = agent_out.text or ""
+
+                # Stream minimal content (single burst) for smooth UI
+                evt = {"type": "content", "text": content}
+                yield f"data: {json.dumps(evt)}\n\n"
+
+                # Finalize with agent meta
+                complete_evt = {
+                    "type": "complete",
+                    "full_response": content,
+                    "conversation_id": conversation_id,
+                    "model_used": "agentic/orchestrator",
+                    "agent_enabled": True,
+                    "agent": agent_out.data,
+                    "avatar": agent_out.avatar,
+                    "images_processed": len(images) if images else 0,
+                }
+                yield f"data: {json.dumps(complete_evt)}\n\n"
+            else:
+                # Default: existing LLM flow
+                response = await abstraction_layer.process_message(
+                    message=full_message,
+                    conversation_id=conversation_id,
+                    model_override=model_id
+                )
+
+                content = response["content"]
+
+                # Stream the response in larger chunks
+                chunk_size = 200
+                for i in range(0, len(content), chunk_size):
+                    chunk = content[i:i+chunk_size]
+                    evt = {"type": "content", "text": chunk}
+                    yield f"data: {json.dumps(evt)}\n\n"
+
+                # Yield a final 'complete' event
+                complete_evt = {
+                    "type": "complete",
+                    "full_response": content,
+                    "conversation_id": conversation_id,
+                    "model_used": response.get("model"),
+                    "agent_enabled": False,
+                    "images_processed": len(images) if images else 0,
+                }
+                yield f"data: {json.dumps(complete_evt)}\n\n"
+
+        except Exception as e:
+            # Yield an error event if something goes wrong
+            yield f"data: {json.dumps({'type': 'error', 'error': str(e)})}\n\n"
+            
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"
+        }
         )

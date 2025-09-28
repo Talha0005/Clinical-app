@@ -24,6 +24,10 @@ try:
     )
     from jose import JWTError, jwt
     import auth as _auth
+    from services.agents import (
+        Orchestrator as _Orchestrator,
+        AgentContext as _AgentContext,
+    )
 except Exception:
     import sys as _sys
     from pathlib import Path as _Path
@@ -43,6 +47,14 @@ except Exception:
         import auth as _auth
     except Exception:
         _auth = None
+    try:
+        from services.agents import (
+            Orchestrator as _Orchestrator,
+            AgentContext as _AgentContext,
+        )
+    except Exception:
+        _Orchestrator = None  # type: ignore
+        _AgentContext = None  # type: ignore
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +68,9 @@ JWT_SECRET = (
     getattr(_auth, "SECRET_KEY", None)
     if "_auth" in globals() and _auth
     else None
-) or os.getenv("JWT_SECRET") or os.getenv("SECRET_KEY") or "dev-secret-change-me"
+) or os.getenv("JWT_SECRET") or os.getenv("SECRET_KEY") or (
+    "dev-secret-change-me"
+)
 JWT_ALGORITHM = (
     getattr(_auth, "ALGORITHM", None)
     if "_auth" in globals() and _auth
@@ -71,6 +85,12 @@ VOICE_INCLUDE_AVATAR_IN_WS = (
     os.getenv("VOICE_INCLUDE_AVATAR_IN_WS", "false").strip().lower() == "true"
 )
 VOICE_DEFAULT_AVATAR = os.getenv("VOICE_DEFAULT_AVATAR", "doctor")
+
+# Agents flag shared with chat
+AGENTS_ENABLED = (
+    os.getenv("AGENTS_ENABLED", "false").strip().lower()
+    in {"1", "true", "yes"}
+)
 
 
 def _extract_codes_minimal_from_text(text: str):
@@ -328,13 +348,18 @@ async def voice_stream_endpoint(websocket: WebSocket, session_id: str):
                                 include_codes = bool(cfg["include_codes"])
                             if isinstance(cfg.get("include_avatar"), bool):
                                 include_avatar = bool(cfg["include_avatar"])
-                            if isinstance(cfg.get("avatar"), str) and cfg.get("avatar"):
+                            if (
+                                isinstance(cfg.get("avatar"), str)
+                                and cfg.get("avatar")
+                            ):
                                 avatar_id = str(cfg["avatar"]).strip()
                             await websocket.send_json(
                                 {
                                     "type": "status",
                                     "status": "configured",
-                                    "message": "Voice session configuration updated",
+                                    "message": (
+                                        "Voice session configuration updated"
+                                    ),
                                     "config": {
                                         "include_codes": include_codes,
                                         "include_avatar": include_avatar,
@@ -346,7 +371,9 @@ async def voice_stream_endpoint(websocket: WebSocket, session_id: str):
                             await websocket.send_json(
                                 {
                                     "type": "error",
-                                    "error": f"Invalid config payload: {str(e)}",
+                                    "error": (
+                                        f"Invalid config payload: {str(e)}"
+                                    ),
                                 }
                             )
                         continue
@@ -393,14 +420,46 @@ async def voice_stream_endpoint(websocket: WebSocket, session_id: str):
                             }
                         ]
 
-                        # Use router's safe helper that always returns a string
-                        resp_text = await llm_router.route_request(
-                            messages=messages,
-                            agent_type=AgentType.AVATAR,
-                            session_id=session_id,
-                            user_id=user_id,
-                            complexity_hint="simple",
-                        )
+                        # If agents enabled, run the MVP orchestrator chain
+                        agent_out = None
+                        if (
+                            AGENTS_ENABLED
+                            and '_Orchestrator' in globals()
+                            and _Orchestrator
+                        ):
+                            try:
+                                orch = _Orchestrator()
+                                ctx = (
+                                    _AgentContext(user_id=user_id)
+                                    if _AgentContext
+                                    else None
+                                )
+                                agent_out = orch.handle_turn(
+                                    transcript_text, ctx=ctx, llm=None
+                                )
+                                resp_text = agent_out.text or ""
+                            except Exception as _e:
+                                logger.error(
+                                    "Agent orchestrator failed, falling back"
+                                    f" to LLM: {_e}"
+                                )
+                                resp_text = await llm_router.route_request(
+                                    messages=messages,
+                                    agent_type=AgentType.AVATAR,
+                                    session_id=session_id,
+                                    user_id=user_id,
+                                    complexity_hint="simple",
+                                )
+                        else:
+                            # Use router's safe helper that always returns a
+                            # string
+                            resp_text = await llm_router.route_request(
+                                messages=messages,
+                                agent_type=AgentType.AVATAR,
+                                session_id=session_id,
+                                user_id=user_id,
+                                complexity_hint="simple",
+                            )
 
                         if not resp_text:
                             resp_text = (
@@ -408,16 +467,28 @@ async def voice_stream_endpoint(websocket: WebSocket, session_id: str):
                                 "Please try again."
                             )
 
-                        # Optionally generate clinical coding report from the transcript
+                        # Optionally generate clinical coding report from the
+                        # transcript
                         clinical_report = None
                         try:
-                            if 'get_clinical_codes_for_symptoms' in globals() and get_clinical_codes_for_symptoms:
-                                report = get_clinical_codes_for_symptoms([transcript_text])
+                            if (
+                                'get_clinical_codes_for_symptoms' in globals()
+                                and get_clinical_codes_for_symptoms
+                            ):
+                                report = get_clinical_codes_for_symptoms(
+                                    [transcript_text]
+                                )
                                 # Keep it compact for the UI payload
                                 clinical_report = {
-                                    "clinical_codes": report.get("clinical_codes", []),
-                                    "differential_diagnoses": report.get("differential_diagnoses", []),
-                                    "summary": report.get("report_summary", ""),
+                                    "clinical_codes": report.get(
+                                        "clinical_codes", []
+                                    ),
+                                    "differential_diagnoses": report.get(
+                                        "differential_diagnoses", []
+                                    ),
+                                    "summary": report.get(
+                                        "report_summary", ""
+                                    ),
                                 }
                         except Exception as e:
                             logger.error(f"Clinical coding failed: {e}")
@@ -431,11 +502,23 @@ async def voice_stream_endpoint(websocket: WebSocket, session_id: str):
                             # Preserve existing clinical_report field
                             "clinical_report": clinical_report,
                         }
+                        # Attach agent meta when available
+                        if AGENTS_ENABLED and agent_out is not None:
+                            try:
+                                payload["agent"] = agent_out.data
+                                if include_avatar and agent_out.avatar:
+                                    payload["avatar"] = agent_out.avatar
+                                elif include_avatar and avatar_id:
+                                    payload["avatar"] = avatar_id
+                            except Exception:
+                                pass
                         # Attach small codes payload behind a flag
                         if include_codes:
                             try:
                                 payload["clinical"] = {
-                                    "codes": _extract_codes_minimal_from_text(transcript_text),
+                                    "codes": _extract_codes_minimal_from_text(
+                                        transcript_text
+                                    ),
                                     "source": "cache",
                                 }
                             except Exception:

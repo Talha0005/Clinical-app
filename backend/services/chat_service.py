@@ -18,6 +18,7 @@ from llm.claude_llm import ClaudeLLM
 from .prompts_service import prompts_service
 from medical.nhs_terminology import NHSTerminologyServer
 from .llm_router import get_llm_router, AgentType
+from .direct_llm_service import direct_llm_service
 
 
 class DigiClinicChatService:
@@ -123,32 +124,27 @@ class DigiClinicChatService:
 
             self.logger.info(f"Processing message in conversation {conversation.conversation_id}")
 
-            # Generate LLM response using router or legacy LLM
-            if self.llm_router:
-                # Use LLM router with agent-based routing
-                messages = []
-                for msg in conversation.messages:
-                    messages.append({"role": msg.role, "content": msg.content})
-                messages.append({"role": "user", "content": new_message})
-                
-                # Default to Avatar agent for general chat
-                router_response = await self.llm_router.generate_response(
+            # Generate LLM response using direct AI service for real responses
+            messages = []
+            for msg in conversation.messages:
+                messages.append({"role": msg.role, "content": msg.content})
+            messages.append({"role": "user", "content": new_message})
+            
+            # Use direct LLM service for real AI responses
+            self.logger.info("Using direct LLM service for real AI responses")
+            try:
+                direct_response = await direct_llm_service.generate_response(
                     messages=messages,
-                    agent_type=AgentType.AVATAR,
-                    session_id=conversation.conversation_id,
-                    user_id="demo_user",
-                    complexity_hint="standard"
+                    model_preference="anthropic"
                 )
-                
-                # If router returns None (no API keys), fall back to legacy LLM
-                if router_response is None:
-                    self.logger.info("LLM Router returned None - falling back to legacy LLM")
-                    response = await self.llm.generate_response(conversation, new_message)
+                if direct_response and direct_response.get("content"):
+                    response = direct_response["content"]
+                    self.logger.info(f"Direct AI response: {direct_response.get('model_used')} -> {response[:100]}...")
                 else:
-                    response = router_response["content"]
-                    self.logger.info(f"LLM Router response: {router_response.get('model_used')} -> {response[:100]}...")
-            else:
-                # Legacy single LLM response
+                    self.logger.info("Direct AI failed - falling back to mock LLM")
+                    response = await self.llm.generate_response(conversation, new_message)
+            except Exception as e:
+                self.logger.warning(f"Direct AI service failed: {e} - falling back to mock LLM")
                 response = await self.llm.generate_response(conversation, new_message)
 
             self.logger.info(f"Generated response: {response[:100]}...")

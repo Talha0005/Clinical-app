@@ -11,7 +11,7 @@ from auth import verify_token
 # Import the LLM router functionality
 try:
     from api.chat import llm_router
-    from llm.base_llm import LLMProvider
+    from llm.base_llm import LLMFactory
 except ImportError as e:
     print(f"Warning: Could not import LLM functionality: {e}")
     llm_router = None

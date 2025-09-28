@@ -160,6 +160,17 @@ class DigiClinicLLMRouter:
     def _initialize_router(self):
         """Initialize LiteLLM router with model list"""
         try:
+            # Ensure API keys are set in environment for LiteLLM
+            anth_key = os.getenv("ANTHROPIC_API_KEY") or os.getenv("ANTHROPIC_KEY")
+            if anth_key:
+                os.environ["ANTHROPIC_API_KEY"] = anth_key
+                logger.info("✅ Anthropic API key set for LiteLLM")
+            
+            openai_key = os.getenv("OPENAI_API_KEY")
+            if openai_key:
+                os.environ["OPENAI_API_KEY"] = openai_key
+                logger.info("✅ OpenAI API key set for LiteLLM")
+            
             model_list = []
             for config in self.model_configs:
                 model_list.append({
@@ -170,9 +181,9 @@ class DigiClinicLLMRouter:
             self.router = Router(
                 model_list=model_list,
                 fallbacks=[
-                    {"fast": ["claude-sonnet", "gpt-4"]},
-                    {"premium": ["claude-opus", "gpt-4"]},
-                    {"standard": ["gpt-4", "claude-sonnet"]}
+                    {"fast": ["claude-sonnet"]},
+                    {"premium": ["claude-opus"]},
+                    {"standard": ["claude-sonnet"]}
                 ],
                 set_verbose=False
             )
@@ -428,7 +439,17 @@ class DigiClinicLLMRouter:
 
             # Primary attempt
             try:
-                response = await _try_model(model_name)
+                # Get the full model name from config
+                full_model_name = None
+                for config in self.model_configs:
+                    if config.model_name == model_name:
+                        full_model_name = config.litellm_params["model"]
+                        break
+                
+                if not full_model_name:
+                    full_model_name = model_name
+                
+                response = await _try_model(full_model_name)
                 result = {
                     "content": response.choices[0].message.content,
                     "model_used": model_name,
@@ -461,7 +482,17 @@ class DigiClinicLLMRouter:
 
                 for alt in fallback_models:
                     try:
-                        response = await _try_model(alt)
+                        # Get the full model name from config for fallback too
+                        full_alt_model_name = None
+                        for config in self.model_configs:
+                            if config.model_name == alt:
+                                full_alt_model_name = config.litellm_params["model"]
+                                break
+                        
+                        if not full_alt_model_name:
+                            full_alt_model_name = alt
+                        
+                        response = await _try_model(full_alt_model_name)
                         result = {
                             "content": response.choices[0].message.content,
                             "model_used": alt,

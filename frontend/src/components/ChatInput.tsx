@@ -33,6 +33,7 @@ export const ChatInput = ({
   const [showModelSelector, setShowModelSelector] = useState(false);
   const [availableModels, setAvailableModels] = useState<Array<{ id: string; name: string }>>([]);
   const [isAssessing, setIsAssessing] = useState(false);
+  // Removed multi-image state - back to single image handling
   const { token } = useAuth();
   const {
     isRecording,
@@ -55,8 +56,16 @@ export const ChatInput = ({
     result: imageResult,
     captureFromCamera,
     uploadFile,
+    analyzeImage,
     clearResult
   } = useImageCapture();
+
+  // Debug: Log when imageResult changes
+  useEffect(() => {
+    if (imageResult) {
+      console.log('🔍 imageResult changed:', imageResult);
+    }
+  }, [imageResult]);
 
   // Prevent duplicate auto-sends for the same image analysis
   const lastImageSigRef = useRef<string | null>(null);
@@ -120,43 +129,13 @@ export const ChatInput = ({
     }
   };
 
-  // Automatically send image analysis result as chat message (deduplicated + cooldown)
+  // Re-enabled: Auto-send image analysis for single image
   useEffect(() => {
     if (!imageResult) return;
-
-    // Build stable signature to detect repeats
-    const sig = stableStringify(imageResult);
-    const now = Date.now();
-    const recentlySent = now - lastImageSendAtRef.current < 5000; // 5s cooldown
-
-    // Drop if duplicate signature or a send is already in-flight/recent
-    if (sig && lastImageSigRef.current === sig) return;
-    if (imageSendInFlightRef.current || recentlySent) return;
-
-    const analysisText = `📸 Medical Image Analysis:
-
-**Findings:** ${imageResult.findings.join(', ') || 'No specific findings noted'}
-
-**Risk Assessment:** ${imageResult.severity || 'Not specified'}
-
-**Recommendations:** ${imageResult.recommendations.join(', ') || 'No specific recommendations'}
-
-Please provide your medical assessment and advice based on this image analysis.`;
-
-    // Mark in-flight and remember signature + timestamp
-    imageSendInFlightRef.current = true;
-    lastImageSigRef.current = sig;
-    lastImageSendAtRef.current = now;
-
-    try {
-      onSendMessage(analysisText);
-    } finally {
-      // Clear the image result after sending and release the lock shortly after
-      setTimeout(() => {
-        try { clearResult(); } catch {}
-        imageSendInFlightRef.current = false;
-      }, 800);
-    }
+    
+    console.log('🔄 Auto-sending image analysis result');
+    onSendMessage(imageResult);
+    clearResult();
   }, [imageResult, onSendMessage, clearResult]);
 
   // Load available models from backend (filters out unsupported options on this environment)
@@ -187,17 +166,46 @@ Please provide your medical assessment and advice based on this image analysis.`
   };
 
   const handleCameraCapture = async () => {
-    clearResult();
-    await captureFromCamera();
-  };
-
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      clearResult();
-      uploadFile(file);
+    try {
+      console.log('📷 Camera capture triggered');
+      const file = await captureFromCamera();
+      if (file) {
+        console.log('📷 Camera capture successful:', file.name, file.type, file.size);
+        // Auto-analyze single image like before
+        await analyzeImage(file);
+      }
+    } catch (error) {
+      console.error('Camera capture failed:', error);
     }
   };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    console.log('📁 File upload triggered');
+    const files = Array.from(e.target.files || []);
+    console.log('📁 Files selected:', files.length);
+    
+    if (files.length > 0) {
+      // Take only the first file for single image handling
+      const file = files[0];
+      console.log('📁 Processing single file:', file.name, file.type, file.size);
+      
+      if (file.type.startsWith('image/') && file.size <= 10 * 1024 * 1024) {
+        // Auto-analyze single image like before
+        await analyzeImage(file);
+      } else {
+        toast({
+          title: 'Invalid file',
+          description: `${file.name} is not a valid image or is too large (max 10MB)`,
+          variant: 'destructive'
+        });
+      }
+      
+      // Clear the input
+      e.target.value = '';
+    }
+  };
+
+  // Removed multi-image functions - back to single image handling
 
   const handleClinicalAssessment = async () => {
     if (!message.trim()) {
@@ -230,13 +238,15 @@ Please provide your medical assessment and advice based on this image analysis.`
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (message.trim() && !disabled) {
       onSendMessage(message.trim());
       setMessage("");
     }
   };
+
+  // Removed sendMessageWithImages - back to single image handling
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -246,9 +256,9 @@ Please provide your medical assessment and advice based on this image analysis.`
   };
 
   return (
-    <div className="bg-medical-surface border-t border-border">
-      <div className="max-w-4xl mx-auto p-4">
-        <form onSubmit={handleSubmit} className="flex gap-3 items-end">
+        <div className="bg-medical-surface border-t border-border">
+          <div className="max-w-4xl mx-auto p-4">
+            <form onSubmit={handleSubmit} className="flex gap-3 items-end">
           <div className="flex-1 relative">
             <Textarea
               value={message}

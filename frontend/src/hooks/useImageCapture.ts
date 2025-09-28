@@ -22,6 +22,7 @@ interface UseImageCaptureReturn {
   result: ImageAnalysisResult | null;
   captureFromCamera: () => Promise<void>;
   uploadFile: (file: File) => Promise<void>;
+  analyzeImage: (file: File) => Promise<void>;
   clearResult: () => void;
 }
 
@@ -32,6 +33,7 @@ export const useImageCapture = (): UseImageCaptureReturn => {
   const { token } = useAuth();
 
   const analyzeImage = useCallback(async (file: File) => {
+    console.log('🚨 analyzeImage called - this should not happen!', file.name);
     setIsAnalyzing(true);
     setError(null);
 
@@ -45,6 +47,7 @@ export const useImageCapture = (): UseImageCaptureReturn => {
       // Backend expects 'analysis_level' with values: basic | clinical | diagnostic | detailed
       formData.append('analysis_level', 'clinical');
 
+      console.log('🚨 Calling /api/medical/vision/analyze - this should not happen!');
       const raw = await apiFetchJson<any>('/api/medical/vision/analyze', {
         method: 'POST',
         auth: true,
@@ -64,7 +67,7 @@ export const useImageCapture = (): UseImageCaptureReturn => {
         throw new Error('Invalid analysis response');
       }
 
-      // Normalize to hook’s expected shape
+      // Normalize to hook's expected shape
       const normalized: ImageAnalysisResult = {
         findings: analysis.clinical_observations ?? [],
         severity: analysis.risk_assessment ?? 'unknown',
@@ -80,6 +83,7 @@ export const useImageCapture = (): UseImageCaptureReturn => {
           : undefined,
       };
 
+      console.log('🚨 Setting imageResult - this should not happen!', normalized);
       setResult(normalized);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to analyze image';
@@ -127,20 +131,23 @@ export const useImageCapture = (): UseImageCaptureReturn => {
       // Stop camera stream
       stream.getTracks().forEach(track => track.stop());
 
-      // Convert to blob and analyze
-      canvas.toBlob(async (blob) => {
-        if (blob) {
-          const file = new File([blob], 'camera-capture.jpg', { type: 'image/jpeg' });
-          await analyzeImage(file);
-        }
-      }, 'image/jpeg', 0.9);
+      // Convert to blob and return file for auto-analysis
+      return new Promise<File>((resolve) => {
+        canvas.toBlob((blob) => {
+          if (blob) {
+            const file = new File([blob], 'camera-capture.jpg', { type: 'image/jpeg' });
+            resolve(file);
+          }
+        }, 'image/jpeg', 0.9);
+      });
 
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Camera access failed';
       setError(errorMessage);
       console.error('Camera capture error:', err);
+      throw err; // Re-throw to be caught by caller
     }
-  }, [analyzeImage]);
+  }, []); // Removed analyzeImage dependency
 
   const uploadFile = useCallback(async (file: File) => {
     if (!file.type.startsWith('image/')) {
@@ -153,6 +160,7 @@ export const useImageCapture = (): UseImageCaptureReturn => {
       return;
     }
 
+    // Auto-analyze single image like before
     await analyzeImage(file);
   }, [analyzeImage]);
 
@@ -167,6 +175,7 @@ export const useImageCapture = (): UseImageCaptureReturn => {
     result,
     captureFromCamera,
     uploadFile,
+    analyzeImage,
     clearResult,
   };
 };
