@@ -156,6 +156,7 @@ export const useVoiceRecording = (): VoiceRecordingState & VoiceRecordingControl
             toast({ title: 'Voice', description: 'Generating AI response...' });
             // Do NOT close immediately here; wait for server 'completed'
           } else if (data.type === 'llm_response') {
+            console.log('🎤 Received LLM response:', data.response);
             setState(prev => ({ 
               ...prev, 
               llmResponse: data.response,

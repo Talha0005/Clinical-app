@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { apiFetchJson } from '@/lib/api';
+import { apiFetch } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
 
 interface ImageAnalysisResult {
@@ -48,13 +48,15 @@ export const useImageCapture = (): UseImageCaptureReturn => {
       formData.append('analysis_level', 'clinical');
 
       console.log('🚨 Calling /api/medical/vision/analyze - this should not happen!');
-      const raw = await apiFetchJson<any>('/api/medical/vision/analyze', {
+      const response = await apiFetch('/api/medical/vision/analyze', {
         method: 'POST',
         auth: true,
         token,
         body: formData,
         timeoutMs: 120_000,
       });
+      
+      const raw = await response.json();
 
       // Some backend failures return success:false with HTTP 200
       if (raw && raw.success === false) {

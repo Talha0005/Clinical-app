@@ -120,6 +120,7 @@ export const DigiClinic = () => {
   };
 
   const handleVoiceAIResponse = useCallback((response: string, meta?: any) => {
+    console.log('🎤 Parent received voice response:', response);
     // Add AI response message from voice input
     const aiMessage: Message = {
       id: Date.now().toString(),

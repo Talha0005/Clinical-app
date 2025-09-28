@@ -94,6 +94,7 @@ export const ChatInput = ({
   // Handle LLM response from voice - pass to parent for AI response display
   useEffect(() => {
     if (llmResponse && onVoiceAIResponse) {
+      console.log('🎤 Passing voice response to parent:', llmResponse);
       // Pass the LLM response to parent component for proper AI message display
       onVoiceAIResponse(llmResponse, llmMeta);
       // Clear the LLM response after passing to parent
@@ -134,7 +135,23 @@ export const ChatInput = ({
     if (!imageResult) return;
     
     console.log('🔄 Auto-sending image analysis result');
-    onSendMessage(imageResult);
+    
+    // Format the image analysis result as a readable message
+    const message = `📷 **Medical Image Analysis Results**
+
+**Findings:**
+${imageResult.findings.map(f => `• ${f}`).join('\n')}
+
+**Risk Assessment:** ${imageResult.severity}
+
+**Recommendations:**
+${imageResult.recommendations.map(r => `• ${r}`).join('\n')}
+
+${imageResult.clinical_coding ? `**Clinical Codes:** ${imageResult.clinical_coding.snomed_codes.map(c => `${c.display} (${c.code})`).join(', ')}` : ''}
+
+*This analysis is for informational purposes only. Please consult with a healthcare professional for proper medical evaluation.*`;
+    
+    onSendMessage(message);
     clearResult();
   }, [imageResult, onSendMessage, clearResult]);
 
