@@ -3,6 +3,8 @@ import { Send, Mic, MicOff, Loader2, Camera, Upload, Settings, ChevronDown, Chev
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useVoiceRecording } from "@/hooks/useVoiceRecording";
+import { useWebSpeech } from "@/hooks/useWebSpeech";
+import VoiceModal from "./VoiceModal";
 import { useImageCapture } from "@/hooks/useImageCapture";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { apiFetch, apiFetchJson } from "@/lib/api";
@@ -33,6 +35,7 @@ export const ChatInput = ({
   const [showModelSelector, setShowModelSelector] = useState(false);
   const [availableModels, setAvailableModels] = useState<Array<{ id: string; name: string }>>([]);
   const [isAssessing, setIsAssessing] = useState(false);
+  const [showVoiceModal, setShowVoiceModal] = useState(false);
   // Removed multi-image state - back to single image handling
   const { token } = useAuth();
   const {
@@ -49,6 +52,9 @@ export const ChatInput = ({
     clearTranscription,
     clearLlmResponse
   } = useVoiceRecording();
+
+  // Web Speech recognition for lightweight local transcription UX
+  const { listening, start, stop, reset, interim, finalText, supported } = useWebSpeech();
 
   const {
     isAnalyzing,
@@ -174,12 +180,10 @@ ${imageResult.clinical_coding ? `**Clinical Codes:** ${imageResult.clinical_codi
   }, [token]);
 
   const handleVoiceToggle = async () => {
-    if (isRecording) {
-      stopRecording();
-    } else {
-      clearTranscription();
-      await startRecording();
-    }
+    // Open modal and start web-speech listening
+    setShowVoiceModal(true);
+    reset();
+    if (supported) start();
   };
 
   const handleCameraCapture = async () => {
@@ -482,6 +486,22 @@ ${imageResult.clinical_coding ? `**Clinical Codes:** ${imageResult.clinical_codi
           {!disabled && ' Use the camera 📷 for medical images, upload 📎 for files, or mic 🎤 for voice input.'}
         </p>
       </div>
-    </div>
+      
+        <VoiceModal
+          open={showVoiceModal}
+          onClose={() => {
+            stop();
+            setShowVoiceModal(false);
+            const text = (finalText || interim || "").trim();
+            if (text) {
+              onSendMessage(text);
+              setMessage("");
+            }
+          }}
+          listening={listening}
+          interim={interim}
+          finalText={finalText}
+        />
+      </div>
   );
 };
