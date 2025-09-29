@@ -5,6 +5,7 @@ from fastapi.responses import RedirectResponse
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
+
 @router.get("/.well-known/oauth-authorization-server")
 async def oauth_authorization_server(request: Request):
     """OAuth authorization server discovery endpoint."""
@@ -19,6 +20,7 @@ async def oauth_authorization_server(request: Request):
     }
     logger.info(f"🔍 Returning OAuth config: {result}")
     return result
+
 
 @router.get("/.well-known/oauth-authorization-server/sse")
 async def oauth_authorization_server_sse(request: Request):
@@ -36,6 +38,7 @@ async def oauth_authorization_server_sse(request: Request):
     logger.info(f"🔍 Returning OAuth SSE config: {result}")
     return result
 
+
 @router.get("/.well-known/oauth-protected-resource")
 async def oauth_protected_resource(request: Request):
     """OAuth protected resource discovery endpoint."""
@@ -46,6 +49,7 @@ async def oauth_protected_resource(request: Request):
         "scopes_supported": ["mcp"],
         "bearer_methods_supported": ["header"],
     }
+
 
 @router.get("/.well-known/oauth-protected-resource/sse")
 async def oauth_protected_resource_sse(request: Request):
@@ -59,6 +63,7 @@ async def oauth_protected_resource_sse(request: Request):
         "sse_endpoint": f"{base_url}/sse",
     }
 
+
 @router.post("/register")
 async def oauth_register():
     """OAuth client registration endpoint."""
@@ -67,6 +72,7 @@ async def oauth_register():
         "client_secret": "mock-secret",
         "registration_access_token": "mock-token",
     }
+
 
 @router.get("/oauth/authorize")
 async def oauth_authorize(request: Request):
@@ -81,11 +87,10 @@ async def oauth_authorize(request: Request):
     auth_code = "mock-auth-code"
 
     if redirect_uri:
-        return RedirectResponse(
-            f"{redirect_uri}?code={auth_code}&state={state}"
-        )
+        return RedirectResponse(f"{redirect_uri}?code={auth_code}&state={state}")
     else:
         return {"code": auth_code, "state": state}
+
 
 @router.post("/oauth/token")
 async def oauth_token():

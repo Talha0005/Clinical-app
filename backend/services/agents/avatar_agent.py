@@ -35,11 +35,11 @@ class AvatarAgent(Agent):
         ]
         reply = llm(messages)  # llm must return plain text
         return AgentResult(
-            text=reply, 
+            text=reply,
             data={
                 "agent": "avatar",
                 "processed_text": user_text,
-                "empathetic_response": reply
-            }, 
-            avatar="dr_hervix"
+                "empathetic_response": reply,
+            },
+            avatar="dr_hervix",
         )

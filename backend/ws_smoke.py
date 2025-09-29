@@ -11,7 +11,11 @@ WS_URL = "ws://127.0.0.1:8000/api/voice/stream/ws_smoke"
 
 async def main():
     # 1) Login to get JWT
-    r = requests.post(f"{BASE_URL}/api/auth/login", json={"username": "doctor", "password": "doctor"}, timeout=10)
+    r = requests.post(
+        f"{BASE_URL}/api/auth/login",
+        json={"username": "doctor", "password": "doctor"},
+        timeout=10,
+    )
     r.raise_for_status()
     token = r.json()["access_token"]
     print("Got token (truncated):", token[:24] + "...")
@@ -28,7 +32,7 @@ async def main():
         print("auth_resp:", msg)
 
         # 4) send a tiny silent audio chunk (1600 samples @16kHz = 0.1s of silence)
-        silent_pcm16 = (b"\x00\x00" * 1600)
+        silent_pcm16 = b"\x00\x00" * 1600
         b64 = base64.b64encode(silent_pcm16).decode("utf-8")
         await ws.send(json.dumps({"type": "audio", "data": b64}))
         print("sent one audio chunk")

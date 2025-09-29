@@ -15,6 +15,7 @@ from model.patient import Patient
 
 class ClinicalSeverity(Enum):
     """Clinical severity levels for symptom triage."""
+
     EMERGENCY = "emergency"
     URGENT = "urgent"
     ROUTINE = "routine"
@@ -23,6 +24,7 @@ class ClinicalSeverity(Enum):
 
 class TriageRecommendation(Enum):
     """Triage recommendations."""
+
     CALL_999 = "call_999"
     A_E_IMMEDIATE = "a_e_immediate"
     GP_URGENT = "gp_urgent"
@@ -34,6 +36,7 @@ class TriageRecommendation(Enum):
 @dataclass
 class ClinicalHistory:
     """Structured clinical history."""
+
     chief_complaint: str
     history_present_illness: str
     symptom_onset: Optional[str] = None
@@ -48,7 +51,7 @@ class ClinicalHistory:
     social_history: Optional[str] = None
     family_history: List[str] = field(default_factory=list)
     review_of_systems: Dict[str, Any] = field(default_factory=dict)
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
         return {
@@ -65,13 +68,14 @@ class ClinicalHistory:
             "allergies": self.allergies,
             "social_history": self.social_history,
             "family_history": self.family_history,
-            "review_of_systems": self.review_of_systems
+            "review_of_systems": self.review_of_systems,
         }
 
 
 @dataclass
 class TriageAssessment:
     """Structured triage assessment."""
+
     severity: ClinicalSeverity
     recommendation: TriageRecommendation
     red_flags: List[str] = field(default_factory=list)
@@ -80,7 +84,7 @@ class TriageAssessment:
     rationale: Optional[str] = None
     timeframe: Optional[str] = None  # "immediately", "within 4 hours", "within 2 weeks"
     advice: List[str] = field(default_factory=list)
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
         return {
@@ -91,20 +95,21 @@ class TriageAssessment:
             "green_flags": self.green_flags,
             "rationale": self.rationale,
             "timeframe": self.timeframe,
-            "advice": self.advice
+            "advice": self.advice,
         }
 
 
 @dataclass
 class DifferentialDiagnosis:
     """Structured differential diagnosis."""
+
     primary_diagnosis: Optional[str] = None
     differential_diagnoses: List[Dict[str, Any]] = field(default_factory=list)
     excluded_diagnoses: List[Dict[str, str]] = field(default_factory=list)
     required_investigations: List[str] = field(default_factory=list)
     clinical_reasoning: Optional[str] = None
     confidence_level: Optional[str] = None  # "high", "moderate", "low"
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
         return {
@@ -113,48 +118,50 @@ class DifferentialDiagnosis:
             "excluded_diagnoses": self.excluded_diagnoses,
             "required_investigations": self.required_investigations,
             "clinical_reasoning": self.clinical_reasoning,
-            "confidence_level": self.confidence_level
+            "confidence_level": self.confidence_level,
         }
 
 
 class HistoryTakingAgent:
     """Agent specialized in structured clinical history taking."""
-    
+
     def __init__(self, llm_router: DigiClinicLLMRouter):
         """Initialize history taking agent."""
         self.llm_router = llm_router
         self.agent_type = AgentType.HISTORY_TAKING
-        
+
     async def take_history(
         self,
         patient_message: str,
         patient: Optional[Patient] = None,
-        context: Dict[str, Any] = None
+        context: Dict[str, Any] = None,
     ) -> Tuple[ClinicalHistory, List[str]]:
         """
         Take comprehensive clinical history from patient input.
-        
+
         Args:
             patient_message: Patient's description of their problem
             patient: Patient object if available
             context: Additional context from conversation
-            
+
         Returns:
             Tuple of (ClinicalHistory, List of follow-up questions)
         """
         # Create structured prompt for history taking
         system_prompt = self._create_history_prompt()
-        
+
         # Prepare context
         context_str = ""
         if patient:
             context_str += f"Patient: {patient.name}, Age: {patient.age}\n"
             context_str += f"Medical History: {', '.join(patient.medical_history)}\n"
-            context_str += f"Current Medications: {', '.join(patient.current_medications)}\n"
-        
+            context_str += (
+                f"Current Medications: {', '.join(patient.current_medications)}\n"
+            )
+
         if context:
             context_str += f"Previous Context: {json.dumps(context, indent=2)}\n"
-        
+
         user_prompt = f"""
         Patient Message: {patient_message}
         
@@ -162,20 +169,23 @@ class HistoryTakingAgent:
         
         Please extract structured clinical history and generate appropriate follow-up questions.
         """
-        
+
         # Get response from LLM
         response = await self.llm_router.route_request(
             messages=[
                 {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt}
+                {"role": "user", "content": user_prompt},
             ],
             agent_type=self.agent_type,
-            metadata={"task": "history_taking", "patient_id": patient.national_insurance if patient else None}
+            metadata={
+                "task": "history_taking",
+                "patient_id": patient.national_insurance if patient else None,
+            },
         )
-        
+
         # Parse response into structured format
         return self._parse_history_response(response, patient)
-    
+
     def _create_history_prompt(self) -> str:
         """Create specialized prompt for history taking."""
         return """You are a specialized clinical history-taking agent for DigiClinic. Your role is to extract and structure clinical information from patient communications and generate appropriate follow-up questions.
@@ -210,15 +220,17 @@ Return structured JSON with:
 
 Always prioritize patient safety and comprehensive assessment."""
 
-    def _parse_history_response(self, response: str, patient: Optional[Patient]) -> Tuple[ClinicalHistory, List[str]]:
+    def _parse_history_response(
+        self, response: str, patient: Optional[Patient]
+    ) -> Tuple[ClinicalHistory, List[str]]:
         """Parse LLM response into structured history and follow-up questions."""
         try:
             # Try to parse JSON response
             data = json.loads(response)
-            
+
             # Extract history information
             extracted = data.get("extracted_history", {})
-            
+
             # Create ClinicalHistory object
             history = ClinicalHistory(
                 chief_complaint=extracted.get("chief_complaint", ""),
@@ -234,65 +246,69 @@ Always prioritize patient safety and comprehensive assessment."""
                 allergies=extracted.get("allergies", []),
                 social_history=extracted.get("social_history"),
                 family_history=extracted.get("family_history", []),
-                review_of_systems=extracted.get("review_of_systems", {})
+                review_of_systems=extracted.get("review_of_systems", {}),
             )
-            
+
             # Extract follow-up questions
             questions = data.get("follow_up_questions", [])
-            
+
             return history, questions
-            
+
         except (json.JSONDecodeError, KeyError) as e:
             # Fallback parsing if JSON fails
             return self._fallback_parse_history(response, patient)
-    
-    def _fallback_parse_history(self, response: str, patient: Optional[Patient]) -> Tuple[ClinicalHistory, List[str]]:
+
+    def _fallback_parse_history(
+        self, response: str, patient: Optional[Patient]
+    ) -> Tuple[ClinicalHistory, List[str]]:
         """Fallback parsing if JSON parsing fails."""
         # Create basic history from response
         history = ClinicalHistory(
             chief_complaint=response[:200] if response else "Not specified",
             history_present_illness=response,
             past_medical_history=patient.medical_history if patient else [],
-            current_medications=patient.current_medications if patient else []
+            current_medications=patient.current_medications if patient else [],
         )
-        
+
         # Generate basic follow-up questions
         questions = [
             "Can you tell me more about when these symptoms started?",
             "How would you rate the severity on a scale of 1-10?",
-            "Have you noticed anything that makes it better or worse?"
+            "Have you noticed anything that makes it better or worse?",
         ]
-        
+
         return history, questions
 
 
 class SymptomTriageAgent:
     """Agent specialized in symptom triage and risk assessment."""
-    
-    def __init__(self, llm_router: DigiClinicLLMRouter, nice_data_source: Optional[NiceCksDataSource] = None):
+
+    def __init__(
+        self,
+        llm_router: DigiClinicLLMRouter,
+        nice_data_source: Optional[NiceCksDataSource] = None,
+    ):
         """Initialize symptom triage agent."""
         self.llm_router = llm_router
         self.agent_type = AgentType.SYMPTOM_TRIAGE
         self.nice_data_source = nice_data_source or NiceCksDataSource()
-        
+
     async def assess_symptoms(
-        self,
-        clinical_history: ClinicalHistory,
-        patient: Optional[Patient] = None
+        self, clinical_history: ClinicalHistory, patient: Optional[Patient] = None
     ) -> TriageAssessment:
         """
         Perform symptom triage and risk assessment.
-        
+
         Args:
             clinical_history: Structured clinical history
             patient: Patient information if available
-            
+
         Returns:
             TriageAssessment with risk level and recommendations
         """
         # Create triage prompt
         system_prompt = self._create_triage_prompt()
-        
+
         # Prepare clinical information
         history_json = json.dumps(clinical_history.to_dict(), indent=2)
         patient_info = ""
@@ -304,7 +320,7 @@ class SymptomTriageAgent:
             - Medical History: {', '.join(patient.medical_history)}
             - Current Medications: {', '.join(patient.current_medications)}
             """
-        
+
         user_prompt = f"""
         Clinical History:
         {history_json}
@@ -313,20 +329,23 @@ class SymptomTriageAgent:
         
         Please assess the clinical risk and provide structured triage recommendations.
         """
-        
+
         # Get triage assessment from LLM
         response = await self.llm_router.route_request(
             messages=[
                 {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt}
+                {"role": "user", "content": user_prompt},
             ],
             agent_type=self.agent_type,
-            metadata={"task": "symptom_triage", "patient_id": patient.national_insurance if patient else None}
+            metadata={
+                "task": "symptom_triage",
+                "patient_id": patient.national_insurance if patient else None,
+            },
         )
-        
+
         # Parse response into structured assessment
         return self._parse_triage_response(response)
-    
+
     def _create_triage_prompt(self) -> str:
         """Create specialized prompt for symptom triage."""
         return """You are a specialized clinical triage agent for DigiClinic. Your role is to assess symptom severity, identify risk factors, and provide evidence-based triage recommendations following NHS guidelines.
@@ -377,27 +396,32 @@ Always err on the side of caution and prioritize patient safety."""
         """Parse LLM response into structured triage assessment."""
         try:
             data = json.loads(response)
-            
+
             # Map string values to enums
             severity_map = {
                 "emergency": ClinicalSeverity.EMERGENCY,
                 "urgent": ClinicalSeverity.URGENT,
                 "routine": ClinicalSeverity.ROUTINE,
-                "self_care": ClinicalSeverity.SELF_CARE
+                "self_care": ClinicalSeverity.SELF_CARE,
             }
-            
+
             recommendation_map = {
                 "call_999": TriageRecommendation.CALL_999,
                 "a_e_immediate": TriageRecommendation.A_E_IMMEDIATE,
                 "gp_urgent": TriageRecommendation.GP_URGENT,
                 "gp_routine": TriageRecommendation.GP_ROUTINE,
                 "pharmacy": TriageRecommendation.PHARMACY,
-                "self_care": TriageRecommendation.SELF_CARE
+                "self_care": TriageRecommendation.SELF_CARE,
             }
-            
-            severity = severity_map.get(data.get("severity", "routine"), ClinicalSeverity.ROUTINE)
-            recommendation = recommendation_map.get(data.get("recommendation", "gp_routine"), TriageRecommendation.GP_ROUTINE)
-            
+
+            severity = severity_map.get(
+                data.get("severity", "routine"), ClinicalSeverity.ROUTINE
+            )
+            recommendation = recommendation_map.get(
+                data.get("recommendation", "gp_routine"),
+                TriageRecommendation.GP_ROUTINE,
+            )
+
             return TriageAssessment(
                 severity=severity,
                 recommendation=recommendation,
@@ -406,55 +430,59 @@ Always err on the side of caution and prioritize patient safety."""
                 green_flags=data.get("green_flags", []),
                 rationale=data.get("rationale"),
                 timeframe=data.get("timeframe"),
-                advice=data.get("advice", [])
+                advice=data.get("advice", []),
             )
-            
+
         except (json.JSONDecodeError, KeyError):
             # Fallback to conservative assessment
             return TriageAssessment(
                 severity=ClinicalSeverity.ROUTINE,
                 recommendation=TriageRecommendation.GP_ROUTINE,
                 rationale="Unable to parse assessment - recommend routine GP review",
-                advice=["Please contact your GP for a routine appointment"]
+                advice=["Please contact your GP for a routine appointment"],
             )
 
 
 class DifferentialDiagnosisAgent:
     """Agent specialized in generating differential diagnoses."""
-    
-    def __init__(self, llm_router: DigiClinicLLMRouter, nice_data_source: Optional[NiceCksDataSource] = None):
+
+    def __init__(
+        self,
+        llm_router: DigiClinicLLMRouter,
+        nice_data_source: Optional[NiceCksDataSource] = None,
+    ):
         """Initialize differential diagnosis agent."""
         self.llm_router = llm_router
         self.agent_type = AgentType.CLINICAL_REASONING
         self.nice_data_source = nice_data_source or NiceCksDataSource()
-        
+
     async def generate_differential(
         self,
         clinical_history: ClinicalHistory,
         triage_assessment: TriageAssessment,
-        patient: Optional[Patient] = None
+        patient: Optional[Patient] = None,
     ) -> DifferentialDiagnosis:
         """
         Generate differential diagnosis based on clinical information.
-        
+
         Args:
             clinical_history: Structured clinical history
             triage_assessment: Triage assessment results
             patient: Patient information if available
-            
+
         Returns:
             DifferentialDiagnosis with possible conditions and reasoning
         """
         # Search NICE CKS for relevant conditions based on symptoms
         relevant_conditions = await self._search_relevant_conditions(clinical_history)
-        
+
         # Create differential diagnosis prompt
         system_prompt = self._create_differential_prompt()
-        
+
         # Prepare clinical information
         history_json = json.dumps(clinical_history.to_dict(), indent=2)
         triage_json = json.dumps(triage_assessment.to_dict(), indent=2)
-        
+
         patient_info = ""
         if patient:
             patient_info = f"""
@@ -464,13 +492,15 @@ class DifferentialDiagnosisAgent:
             - Medical History: {', '.join(patient.medical_history)}
             - Current Medications: {', '.join(patient.current_medications)}
             """
-        
+
         conditions_context = ""
         if relevant_conditions.results:
             conditions_context = "Relevant Medical Conditions from NICE CKS:\n"
-            for condition in relevant_conditions.results[:5]:  # Top 5 relevant conditions
+            for condition in relevant_conditions.results[
+                :5
+            ]:  # Top 5 relevant conditions
                 conditions_context += f"- {condition.name}: {condition.description}\n"
-        
+
         user_prompt = f"""
         Clinical History:
         {history_json}
@@ -484,35 +514,42 @@ class DifferentialDiagnosisAgent:
         
         Please generate a structured differential diagnosis with clinical reasoning.
         """
-        
+
         # Get differential diagnosis from LLM
         response = await self.llm_router.route_request(
             messages=[
                 {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt}
+                {"role": "user", "content": user_prompt},
             ],
             agent_type=self.agent_type,
-            metadata={"task": "differential_diagnosis", "patient_id": patient.national_insurance if patient else None}
+            metadata={
+                "task": "differential_diagnosis",
+                "patient_id": patient.national_insurance if patient else None,
+            },
         )
-        
+
         # Parse response into structured diagnosis
         return self._parse_differential_response(response)
-    
-    async def _search_relevant_conditions(self, clinical_history: ClinicalHistory) -> SearchResult:
+
+    async def _search_relevant_conditions(
+        self, clinical_history: ClinicalHistory
+    ) -> SearchResult:
         """Search for relevant medical conditions based on symptoms."""
         # Create search query from symptoms and chief complaint
         search_terms = [clinical_history.chief_complaint]
         search_terms.extend(clinical_history.associated_symptoms)
-        
+
         # Remove empty terms and create search query
         search_terms = [term for term in search_terms if term and term.strip()]
         search_query = " ".join(search_terms[:5])  # Limit to avoid overly long queries
-        
+
         if search_query:
             return await self.nice_data_source.search_conditions(search_query, limit=10)
         else:
-            return SearchResult(query="", results=[], total_results=0, source="NICE CKS")
-    
+            return SearchResult(
+                query="", results=[], total_results=0, source="NICE CKS"
+            )
+
     def _create_differential_prompt(self) -> str:
         """Create specialized prompt for differential diagnosis."""
         return """You are a specialized clinical reasoning agent for DigiClinic. Your role is to generate evidence-based differential diagnoses following medical best practices and NHS guidelines.
@@ -552,53 +589,62 @@ Always maintain diagnostic uncertainty appropriately and recommend further asses
         """Parse LLM response into structured differential diagnosis."""
         try:
             data = json.loads(response)
-            
+
             return DifferentialDiagnosis(
                 primary_diagnosis=data.get("primary_diagnosis"),
                 differential_diagnoses=data.get("differential_diagnoses", []),
                 excluded_diagnoses=data.get("excluded_diagnoses", []),
                 required_investigations=data.get("required_investigations", []),
                 clinical_reasoning=data.get("clinical_reasoning"),
-                confidence_level=data.get("confidence_level")
+                confidence_level=data.get("confidence_level"),
             )
-            
+
         except (json.JSONDecodeError, KeyError):
             # Fallback differential
             return DifferentialDiagnosis(
                 primary_diagnosis="Further assessment required",
                 clinical_reasoning="Unable to generate structured differential - recommend comprehensive clinical evaluation",
                 confidence_level="low",
-                required_investigations=["Comprehensive clinical assessment", "Consider relevant investigations based on presentation"]
+                required_investigations=[
+                    "Comprehensive clinical assessment",
+                    "Consider relevant investigations based on presentation",
+                ],
             )
 
 
 class ClinicalAgentOrchestrator:
     """Orchestrates the clinical agents for comprehensive patient assessment."""
-    
-    def __init__(self, llm_router: DigiClinicLLMRouter, nice_data_source: Optional[NiceCksDataSource] = None):
+
+    def __init__(
+        self,
+        llm_router: DigiClinicLLMRouter,
+        nice_data_source: Optional[NiceCksDataSource] = None,
+    ):
         """Initialize clinical agent orchestrator."""
         self.llm_router = llm_router
         self.nice_data_source = nice_data_source or NiceCksDataSource()
-        
+
         # Initialize agents
         self.history_agent = HistoryTakingAgent(llm_router)
         self.triage_agent = SymptomTriageAgent(llm_router, nice_data_source)
-        self.differential_agent = DifferentialDiagnosisAgent(llm_router, nice_data_source)
-    
+        self.differential_agent = DifferentialDiagnosisAgent(
+            llm_router, nice_data_source
+        )
+
     async def comprehensive_assessment(
         self,
         patient_message: str,
         patient: Optional[Patient] = None,
-        context: Dict[str, Any] = None
+        context: Dict[str, Any] = None,
     ) -> Dict[str, Any]:
         """
         Perform comprehensive clinical assessment using all agents.
-        
+
         Args:
             patient_message: Patient's description of their problem
             patient: Patient object if available
             context: Additional context from conversation
-            
+
         Returns:
             Dictionary containing all assessment results
         """
@@ -606,17 +652,19 @@ class ClinicalAgentOrchestrator:
         clinical_history, follow_up_questions = await self.history_agent.take_history(
             patient_message, patient, context
         )
-        
+
         # Step 2: Perform symptom triage
-        triage_assessment = await self.triage_agent.assess_symptoms(clinical_history, patient)
-        
+        triage_assessment = await self.triage_agent.assess_symptoms(
+            clinical_history, patient
+        )
+
         # Step 3: Generate differential diagnosis (if not emergency)
         differential = None
         if triage_assessment.severity != ClinicalSeverity.EMERGENCY:
             differential = await self.differential_agent.generate_differential(
                 clinical_history, triage_assessment, patient
             )
-        
+
         # Compile comprehensive assessment
         return {
             "clinical_history": clinical_history.to_dict(),
@@ -624,25 +672,27 @@ class ClinicalAgentOrchestrator:
             "differential_diagnosis": differential.to_dict() if differential else None,
             "follow_up_questions": follow_up_questions,
             "assessment_timestamp": datetime.utcnow().isoformat(),
-            "patient_id": patient.national_insurance if patient else None
+            "patient_id": patient.national_insurance if patient else None,
         }
-    
+
     async def get_follow_up_questions(
         self,
         patient_message: str,
         patient: Optional[Patient] = None,
-        context: Dict[str, Any] = None
+        context: Dict[str, Any] = None,
     ) -> List[str]:
         """
         Get follow-up questions for ongoing history taking.
-        
+
         Args:
             patient_message: Patient's latest message
             patient: Patient object if available
             context: Previous assessment context
-            
+
         Returns:
             List of relevant follow-up questions
         """
-        _, questions = await self.history_agent.take_history(patient_message, patient, context)
+        _, questions = await self.history_agent.take_history(
+            patient_message, patient, context
+        )
         return questions

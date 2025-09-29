@@ -20,6 +20,7 @@ except ImportError:
         handle_patient_list,
     )
 
+
 def get_all_tools() -> List[Tool]:
     """Returns a list of all available tools."""
     return [
@@ -27,6 +28,7 @@ def get_all_tools() -> List[Tool]:
         get_patient_list_tool(),
         get_create_patient_tool(),
     ]
+
 
 async def call_tool(name: str, arguments: Dict[str, Any]):
     """Handles a tool call."""

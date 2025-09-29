@@ -32,10 +32,7 @@ class SymptomTriageAgent(Agent):
             tl = user_text.lower()
             red = [t for t in RED_FLAG_TERMS if t in tl]
             urgency = "routine"
-            if (
-                "chest pain" in tl
-                or ("shortness of breath" in tl and "pain" in tl)
-            ):
+            if "chest pain" in tl or ("shortness of breath" in tl and "pain" in tl):
                 urgency = "emergency"
             elif red:
                 urgency = "urgent"
@@ -48,14 +45,14 @@ class SymptomTriageAgent(Agent):
                 ),
                 data=data,
             )
-        
+
         # Use LLM for advanced triage
         system = TRIAGE_TEMPLATE
         messages = [
             {"role": "system", "content": system},
             {"role": "user", "content": f"Assess urgency for: {user_text}"},
         ]
-        
+
         try:
             response = llm(messages)
             data = json.loads(response)
@@ -64,15 +61,16 @@ class SymptomTriageAgent(Agent):
             tl = user_text.lower()
             red = [t for t in RED_FLAG_TERMS if t in tl]
             urgency = "routine"
-            if (
-                "chest pain" in tl
-                or ("shortness of breath" in tl and "pain" in tl)
-            ):
+            if "chest pain" in tl or ("shortness of breath" in tl and "pain" in tl):
                 urgency = "emergency"
             elif red:
                 urgency = "urgent"
-            data = {"urgency": urgency, "red_flags": red, "advice": "Please consult a healthcare professional"}
-        
+            data = {
+                "urgency": urgency,
+                "red_flags": red,
+                "advice": "Please consult a healthcare professional",
+            }
+
         return AgentResult(
             text=(
                 "I'll keep you safe and ask a few quick checks."
@@ -83,6 +81,8 @@ class SymptomTriageAgent(Agent):
                 "agent": "triage",
                 "urgency": data.get("urgency", "routine"),
                 "red_flags": data.get("red_flags", []),
-                "advice": data.get("advice", "Please consult a healthcare professional")
+                "advice": data.get(
+                    "advice", "Please consult a healthcare professional"
+                ),
             },
         )

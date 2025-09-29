@@ -23,15 +23,15 @@ def sample_patient_data():
             "national_insurance": "AB123456C",
             "age": 45,
             "medical_history": ["Hypertension", "Type 2 Diabetes"],
-            "current_medications": ["Metformin", "Lisinopril"]
+            "current_medications": ["Metformin", "Lisinopril"],
         },
         {
-            "name": "Jane Doe", 
+            "name": "Jane Doe",
             "national_insurance": "CD789012E",
             "age": 32,
             "medical_history": ["Asthma"],
-            "current_medications": ["Ventolin"]
-        }
+            "current_medications": ["Ventolin"],
+        },
     ]
 
 

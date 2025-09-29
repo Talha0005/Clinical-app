@@ -5,13 +5,13 @@ from .tools.patient import (
     get_patient_db_tool,
     handle_patient_db,
     get_patient_list_tool,
-    handle_patient_list
+    handle_patient_list,
 )
 
 # Export all functions for server imports
 __all__ = [
     "get_patient_db_tool",
-    "handle_patient_db", 
+    "handle_patient_db",
     "get_patient_list_tool",
     "handle_patient_list",
 ]

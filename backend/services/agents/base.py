@@ -9,6 +9,7 @@ class AgentContext:
 
     Extend later with user profile, auth, locale, session state, etc.
     """
+
     user_id: str = "anonymous"
     locale: str = "en-GB"
     tone: str = "empathetic"
@@ -26,6 +27,7 @@ class AgentResult:
     next_actions: Suggestions for the orchestrator (optional).
     avatar: Optional avatar id for UI.
     """
+
     text: str
     data: Dict[str, Any] = field(default_factory=dict)
     next_actions: List[Dict[str, Any]] = field(default_factory=list)
@@ -41,5 +43,4 @@ class Agent(Protocol):
         user_text: str,
         *,
         llm: Optional[Any] = None,
-    ) -> AgentResult:
-        ...
+    ) -> AgentResult: ...

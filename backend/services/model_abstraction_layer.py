@@ -248,7 +248,12 @@ class ModelAbstractionLayer:
         # OpenAI (if available)
         self.openai_key = os.getenv("OPENAI_API_KEY")
         # Allow disabling OpenAI via env to avoid quota errors
-        if os.getenv("OPENAI_DISABLED", "").strip().lower() in {"1", "true", "yes", "on"}:
+        if os.getenv("OPENAI_DISABLED", "").strip().lower() in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }:
             self.openai_key = None
 
         # Google Gemini (prefer GEMINI_API_KEY, fallback to GOOGLE_API_KEY)
@@ -707,10 +712,7 @@ class ModelAbstractionLayer:
             # Prevent infinite recursion with max retry limit
             MAX_RETRIES = 2
             error_text = str(e).lower()
-            if (
-                model_to_use == ModelProvider.CLAUDE_OPUS
-                and "not_found" in error_text
-            ):
+            if model_to_use == ModelProvider.CLAUDE_OPUS and "not_found" in error_text:
                 self._disable_model(
                     ModelProvider.CLAUDE_OPUS,
                     "Provider reports model_not_found error",
@@ -1018,7 +1020,10 @@ class ModelAbstractionLayer:
                 ModelProvider.CLAUDE_HAIKU,
             )
 
-        if failed_model == ModelProvider.GPT4O or failed_model == ModelProvider.GPT4O_MINI:
+        if (
+            failed_model == ModelProvider.GPT4O
+            or failed_model == ModelProvider.GPT4O_MINI
+        ):
             # Fall back to Claude Sonnet if Anthropic is configured, else Gemini
             return self._select_available_model(
                 [

@@ -72,5 +72,18 @@
       "Citalopram 20mg once daily",
       "Omeprazole 20mg once daily"
     ]
+  },
+  {
+    "name": "John Doe",
+    "national_insurance": "PA276510Z",
+    "age": 45,
+    "medical_history": [
+      "Hypertension",
+      "Type 2 Diabetes",
+      "Suspected Upper Respiratory Infection"
+    ],
+    "current_medications": [
+      "Metformin"
+    ]
   }
 ]

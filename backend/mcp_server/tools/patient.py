@@ -25,7 +25,7 @@ def get_patient_db_tool() -> Tool:
                 "national_insurance": {
                     "type": "string",
                     "description": "National Insurance number of the patient",
-                }
+                },
             },
             "required": ["patient_name", "national_insurance"],
         },
@@ -36,26 +36,23 @@ async def handle_patient_db(arguments: Dict[str, Any]) -> list[TextContent]:
     """Handle the patient-db tool call."""
     patient_name = arguments.get("patient_name", "").strip()
     national_insurance = arguments.get("national_insurance", "").strip()
-    
+
     if not patient_name or not national_insurance:
         raise ValueError("Both patient_name and national_insurance are required")
-    
+
     try:
         db = MockPatientDB()
         patient = db.find_patient(patient_name, national_insurance)
-        
+
         if patient:
             import json
-            return [TextContent(
-                type="text",
-                text=json.dumps(patient.to_dict(), indent=2)
-            )]
+
+            return [
+                TextContent(type="text", text=json.dumps(patient.to_dict(), indent=2))
+            ]
         else:
-            return [TextContent(
-                type="text",
-                text="Patient not found in database"
-            )]
-            
+            return [TextContent(type="text", text="Patient not found in database")]
+
     except FileNotFoundError:
         return [TextContent(type="text", text="Patient database not found")]
     except ValueError:
@@ -80,13 +77,11 @@ async def handle_patient_list(arguments: Dict[str, Any]) -> list[TextContent]:
     try:
         db = MockPatientDB()
         patient_list = db.get_patient_list()
-        
+
         import json
-        return [TextContent(
-            type="text",
-            text=json.dumps(patient_list, indent=2)
-        )]
-        
+
+        return [TextContent(type="text", text=json.dumps(patient_list, indent=2))]
+
     except FileNotFoundError:
         return [TextContent(type="text", text="Patient database not found")]
     except ValueError:
@@ -119,10 +114,10 @@ def get_create_patient_tool() -> Tool:
                     "description": "List of medical conditions",
                 },
                 "current_medications": {
-                    "type": "array", 
+                    "type": "array",
                     "items": {"type": "string"},
                     "description": "List of current medications",
-                }
+                },
             },
             "required": ["name", "national_insurance"],
         },
@@ -134,18 +129,17 @@ async def handle_create_patient(arguments: Dict[str, Any]) -> list[TextContent]:
     try:
         db = MockPatientDB()
         success = db.create_new_patient(arguments)
-        
+
         if success:
-            return [TextContent(
-                type="text",
-                text=f"Successfully created patient: {arguments['name']} ({arguments['national_insurance']})"
-            )]
+            return [
+                TextContent(
+                    type="text",
+                    text=f"Successfully created patient: {arguments['name']} ({arguments['national_insurance']})",
+                )
+            ]
         else:
-            return [TextContent(
-                type="text",
-                text="Failed to create patient"
-            )]
-            
+            return [TextContent(type="text", text="Failed to create patient")]
+
     except ValueError as e:
         return [TextContent(type="text", text=f"Error: {str(e)}")]
     except Exception as e:

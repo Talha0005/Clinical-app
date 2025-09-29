@@ -24,6 +24,7 @@ def _load_secret_key() -> str:
     # Try to load from .env if available
     try:
         from dotenv import load_dotenv
+
         load_dotenv()
         secret = os.getenv("JWT_SECRET")
         if secret:
@@ -34,7 +35,9 @@ def _load_secret_key() -> str:
 
     # Last resort: dev fallback for local runs
     dev_secret = "dev-secret-please-change"
-    print("⚠️  JWT_SECRET not set; using development fallback. Set JWT_SECRET in your environment or backend/.env.")
+    print(
+        "⚠️  JWT_SECRET not set; using development fallback. Set JWT_SECRET in your environment or backend/.env."
+    )
     return dev_secret
 
 
@@ -56,7 +59,9 @@ def verify_password(username: str, password: str) -> bool:
 
     # Dev fallback when no password is configured in env
     if username.lower() == "doctor" and password == "doctor":
-        print("🔓 Using development default credentials for 'doctor'. Configure DOCTOR_PASSWORD to override.")
+        print(
+            "🔓 Using development default credentials for 'doctor'. Configure DOCTOR_PASSWORD to override."
+        )
         return True
     return False
 
@@ -80,13 +85,15 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)) 
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
-    
+
     try:
-        payload = jwt.decode(credentials.credentials, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(
+            credentials.credentials, SECRET_KEY, algorithms=[ALGORITHM]
+        )
         username: str = payload.get("sub")
         if username is None:
             raise credentials_exception
     except JWTError:
         raise credentials_exception
-    
+
     return username

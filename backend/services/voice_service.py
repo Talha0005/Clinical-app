@@ -72,9 +72,7 @@ class DigiClinicVoiceService:
 
         except Exception as e:
             logger.error(f"Failed to initialize AssemblyAI: {e}")
-            self.last_error_message = (
-                f"Failed to initialize AssemblyAI: {e}"
-            )
+            self.last_error_message = f"Failed to initialize AssemblyAI: {e}"
             self.status = VoiceServiceStatus.ERROR
 
     @observe()
@@ -102,9 +100,7 @@ class DigiClinicVoiceService:
 
         try:
             if not self.api_key:
-                logger.warning(
-                    "No AssemblyAI API key - transcriber will be None"
-                )
+                logger.warning("No AssemblyAI API key - transcriber will be None")
                 return None
 
             # Create transcriber (handle multiple SDK shapes)
@@ -153,10 +149,7 @@ class DigiClinicVoiceService:
                             if aai_types is not None
                             else None
                         )
-                        if (
-                            audio_enc is not None
-                            and hasattr(audio_enc, "pcm_s16le")
-                        ):
+                        if audio_enc is not None and hasattr(audio_enc, "pcm_s16le"):
                             ctor_kwargs["encoding"] = audio_enc.pcm_s16le
                         else:
                             # Fallback: let SDK default if enum unavailable
@@ -177,25 +170,19 @@ class DigiClinicVoiceService:
                     sample_rate=sample_rate,
                 )
             except Exception as e:
-                logger.error(
-                    f"Failed to instantiate RealtimeTranscriber: {e}"
-                )
+                logger.error(f"Failed to instantiate RealtimeTranscriber: {e}")
                 self.last_error_message = (
                     f"Failed to instantiate RealtimeTranscriber: {e}"
                 )
                 self.status = VoiceServiceStatus.ERROR
                 return None
 
-            logger.info(
-                f"Real-time transcriber created for session {session_id}"
-            )
+            logger.info(f"Real-time transcriber created for session {session_id}")
             return transcriber
 
         except Exception as e:
             logger.error(f"Failed to create real-time transcriber: {e}")
-            self.last_error_message = (
-                f"Failed to create real-time transcriber: {e}"
-            )
+            self.last_error_message = f"Failed to create real-time transcriber: {e}"
             self.status = VoiceServiceStatus.ERROR
             return None
 
@@ -238,9 +225,7 @@ class DigiClinicVoiceService:
 
                 def _enqueue_threadsafe(item: Dict[str, Any]):
                     try:
-                        loop.call_soon_threadsafe(
-                            result_queue.put_nowait, item
-                        )
+                        loop.call_soon_threadsafe(result_queue.put_nowait, item)
                     except Exception as e:
                         try:
                             asyncio.run_coroutine_threadsafe(
@@ -256,8 +241,7 @@ class DigiClinicVoiceService:
                             "type": "status",
                             "status": VoiceServiceStatus.ACTIVE.value,
                             "message": (
-                                "Session started: "
-                                f"{getattr(event, 'id', '')}"
+                                "Session started: " f"{getattr(event, 'id', '')}"
                             ),
                         }
                     )
@@ -265,12 +249,11 @@ class DigiClinicVoiceService:
                 def on_turn(_client, event):
                     try:
                         transcript = getattr(event, "transcript", "")
-                        end_of_turn = bool(
-                            getattr(event, "end_of_turn", False)
-                        )
+                        end_of_turn = bool(getattr(event, "end_of_turn", False))
                         result = {
                             "type": (
-                                "final_transcript" if end_of_turn
+                                "final_transcript"
+                                if end_of_turn
                                 else "partial_transcript"
                             ),
                             "text": transcript or "",
@@ -283,10 +266,12 @@ class DigiClinicVoiceService:
                         }
                         _enqueue_threadsafe(result)
                     except Exception as e:
-                        _enqueue_threadsafe({
-                            "type": "error",
-                            "error": f"Turn handling error: {e}",
-                        })
+                        _enqueue_threadsafe(
+                            {
+                                "type": "error",
+                                "error": f"Turn handling error: {e}",
+                            }
+                        )
 
                 def on_terminated(_client, event):
                     _enqueue_threadsafe(
@@ -315,9 +300,7 @@ class DigiClinicVoiceService:
                 )
                 client.on(aai_stream_v3.StreamingEvents.Begin, on_begin)
                 client.on(aai_stream_v3.StreamingEvents.Turn, on_turn)
-                client.on(
-                    aai_stream_v3.StreamingEvents.Termination, on_terminated
-                )
+                client.on(aai_stream_v3.StreamingEvents.Termination, on_terminated)
                 client.on(aai_stream_v3.StreamingEvents.Error, on_stream_error)
 
                 # Update status: connecting
@@ -325,10 +308,7 @@ class DigiClinicVoiceService:
                 yield {
                     "type": "status",
                     "status": self.status.value,
-                    "message": (
-                        "Connecting to AssemblyAI transcription "
-                        "service"
-                    ),
+                    "message": ("Connecting to AssemblyAI transcription " "service"),
                 }
 
                 # Connect with parameters (Universal Streaming)
@@ -342,9 +322,7 @@ class DigiClinicVoiceService:
                         )
                     )
                 except Exception as e:
-                    logger.error(
-                        f"Failed to connect StreamingClient (v3): {e}"
-                    )
+                    logger.error(f"Failed to connect StreamingClient (v3): {e}")
                     # Surface the real error to client and exit gracefully
                     yield {
                         "type": "error",
@@ -365,9 +343,7 @@ class DigiClinicVoiceService:
 
                 # Bridge async audio generator -> blocking .stream()
                 # via thread + Queue
-                byte_queue: "queue.Queue[Optional[bytes]]" = queue.Queue(
-                    maxsize=100
-                )
+                byte_queue: "queue.Queue[Optional[bytes]]" = queue.Queue(maxsize=100)
 
                 async def feed_audio():
                     try:
@@ -376,14 +352,15 @@ class DigiClinicVoiceService:
                                 byte_queue.put(audio_chunk, timeout=1.0)
                             except queue.Full:
                                 logger.warning(
-                                    "Audio queue full, dropping a chunk to"
-                                    " keep up"
+                                    "Audio queue full, dropping a chunk to" " keep up"
                                 )
                     except Exception as e:
-                        await result_queue.put({
-                            "type": "error",
-                            "error": f"Audio processing error: {e}",
-                        })
+                        await result_queue.put(
+                            {
+                                "type": "error",
+                                "error": f"Audio processing error: {e}",
+                            }
+                        )
                     finally:
                         # signal end of audio
                         try:
@@ -410,17 +387,13 @@ class DigiClinicVoiceService:
                     except Exception as e:
                         stream_exc["error"] = e
 
-                stream_thread = threading.Thread(
-                    target=_run_stream, daemon=True
-                )
+                stream_thread = threading.Thread(target=_run_stream, daemon=True)
                 stream_thread.start()
 
                 # Consume results until audio complete and stream thread ends
                 while True:
                     try:
-                        result = await asyncio.wait_for(
-                            result_queue.get(), timeout=0.5
-                        )
+                        result = await asyncio.wait_for(result_queue.get(), timeout=0.5)
                         yield result
                         # If completed status emitted and stream thread
                         # finished, exit
@@ -459,9 +432,10 @@ class DigiClinicVoiceService:
                 # import-time errors (module missing). If it's an auth or
                 # connection error, surface it and return.
                 msg = str(v3_err)
-                if any(k in msg.lower() for k in [
-                    "unauthorized", "invalid api key", "forbidden"
-                ]):
+                if any(
+                    k in msg.lower()
+                    for k in ["unauthorized", "invalid api key", "forbidden"]
+                ):
                     yield {
                         "type": "error",
                         "error": (
@@ -543,9 +517,7 @@ class DigiClinicVoiceService:
                     "text": "",
                     "confidence": 0.0,
                     "status": "no_api_key",
-                    "error": (
-                        "ASSEMBLYAI_API_KEY environment variable required"
-                    ),
+                    "error": ("ASSEMBLYAI_API_KEY environment variable required"),
                     "duration": 0.0,
                 }
 
@@ -594,17 +566,14 @@ class DigiClinicVoiceService:
                 await asyncio.sleep(1)
 
             if transcript.status == aai.TranscriptStatus.error:
-                raise Exception(
-                    f"Transcription failed: {transcript.error}"
-                )
+                raise Exception(f"Transcription failed: {transcript.error}")
 
             result = {
                 "text": transcript.text,
                 "confidence": transcript.confidence,
                 "status": "completed",
                 # Convert to seconds
-                "duration": (getattr(transcript, "audio_duration", 0) or 0)
-                / 1000.0,
+                "duration": (getattr(transcript, "audio_duration", 0) or 0) / 1000.0,
                 "words": len(transcript.words) if transcript.words else 0,
             }
 
@@ -630,6 +599,7 @@ class DigiClinicVoiceService:
         v3_supported = False
         try:
             from assemblyai.streaming import v3 as _aai_stream_v3  # type: ignore
+
             v3_supported = hasattr(_aai_stream_v3, "StreamingClient")
         except Exception:
             v3_supported = False
@@ -638,7 +608,9 @@ class DigiClinicVoiceService:
             "service_status": self.status.value,
             "assemblyai_configured": bool(self.api_key),
             # Realtime supported if Streaming v3 is present or legacy transcriber exists
-            "realtime_supported": bool(v3_supported or getattr(aai, "RealtimeTranscriber", None)),
+            "realtime_supported": bool(
+                v3_supported or getattr(aai, "RealtimeTranscriber", None)
+            ),
             "assemblyai_version": getattr(aai, "__version__", "unknown"),
             "config": {
                 "language_code": self.config.language_code,

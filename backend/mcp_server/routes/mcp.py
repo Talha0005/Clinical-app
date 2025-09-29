@@ -4,6 +4,7 @@ from fastapi import APIRouter, Header, HTTPException, Request
 
 logger = logging.getLogger(__name__)
 
+
 def create_mcp_router(server):
     router = APIRouter()
 
@@ -53,4 +54,5 @@ def create_mcp_router(server):
         return await server.sse_transport.handle_post_message(
             request.scope, request.receive, request._send
         )
+
     return router

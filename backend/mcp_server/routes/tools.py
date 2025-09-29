@@ -11,11 +11,13 @@ except ImportError:
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
+
 @router.get("/tools")
 async def list_tools_http():
     """HTTP endpoint to list tools."""
     tools = get_all_tools()
     return {"tools": [tool.model_dump() for tool in tools]}
+
 
 @router.post("/tools/{tool_name}")
 async def call_tool_http(tool_name: str, arguments: Dict[str, Any] = None):

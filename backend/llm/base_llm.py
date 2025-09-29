@@ -13,6 +13,7 @@ import json
 @dataclass
 class ChatMessage:
     """Represents a single message in a conversation"""
+
     role: str  # "system", "user", "assistant"
     content: str
     timestamp: datetime
@@ -24,35 +25,35 @@ class ChatMessage:
             "role": self.role,
             "content": self.content,
             "timestamp": self.timestamp.isoformat(),
-            "metadata": self.metadata or {}
+            "metadata": self.metadata or {},
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'ChatMessage':
+    def from_dict(cls, data: Dict[str, Any]) -> "ChatMessage":
         """Create from dictionary"""
         return cls(
             role=data["role"],
             content=data["content"],
             timestamp=datetime.fromisoformat(data["timestamp"]),
-            metadata=data.get("metadata")
+            metadata=data.get("metadata"),
         )
 
 
 @dataclass
 class ConversationHistory:
     """Manages conversation history that travels between browser and server"""
+
     messages: List[ChatMessage]
     conversation_id: str
     created_at: datetime
     metadata: Optional[Dict[str, Any]] = None
 
-    def add_message(self, role: str, content: str, metadata: Optional[Dict[str, Any]] = None):
+    def add_message(
+        self, role: str, content: str, metadata: Optional[Dict[str, Any]] = None
+    ):
         """Add a new message to the conversation"""
         message = ChatMessage(
-            role=role,
-            content=content,
-            timestamp=datetime.now(),
-            metadata=metadata
+            role=role, content=content, timestamp=datetime.now(), metadata=metadata
         )
         self.messages.append(message)
 
@@ -62,27 +63,28 @@ class ConversationHistory:
             "conversation_id": self.conversation_id,
             "created_at": self.created_at.isoformat(),
             "messages": [msg.to_dict() for msg in self.messages],
-            "metadata": self.metadata or {}
+            "metadata": self.metadata or {},
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'ConversationHistory':
+    def from_dict(cls, data: Dict[str, Any]) -> "ConversationHistory":
         """Create from dictionary sent from browser"""
         return cls(
             conversation_id=data["conversation_id"],
             created_at=datetime.fromisoformat(data["created_at"]),
             messages=[ChatMessage.from_dict(msg) for msg in data["messages"]],
-            metadata=data.get("metadata")
+            metadata=data.get("metadata"),
         )
 
     def get_messages_for_llm(self, max_messages: int = 50) -> List[Dict[str, str]]:
         """Get messages formatted for LLM API calls with history limits"""
         # Keep only the most recent messages to prevent memory/API issues
-        recent_messages = self.messages[-max_messages:] if len(self.messages) > max_messages else self.messages
-        return [
-            {"role": msg.role, "content": msg.content}
-            for msg in recent_messages
-        ]
+        recent_messages = (
+            self.messages[-max_messages:]
+            if len(self.messages) > max_messages
+            else self.messages
+        )
+        return [{"role": msg.role, "content": msg.content} for msg in recent_messages]
 
 
 class BaseLLM(ABC):
@@ -97,19 +99,16 @@ class BaseLLM(ABC):
 
     @abstractmethod
     async def generate_response(
-        self, 
-        conversation: ConversationHistory,
-        new_message: str,
-        **kwargs
+        self, conversation: ConversationHistory, new_message: str, **kwargs
     ) -> str:
         """
         Generate a response given conversation history and new message
-        
+
         Args:
             conversation: Current conversation history
             new_message: New user message
             **kwargs: Additional parameters for this LLM
-            
+
         Returns:
             Generated response string
         """
@@ -117,19 +116,16 @@ class BaseLLM(ABC):
 
     @abstractmethod
     async def generate_streaming_response(
-        self, 
-        conversation: ConversationHistory,
-        new_message: str,
-        **kwargs
+        self, conversation: ConversationHistory, new_message: str, **kwargs
     ) -> AsyncIterator[Dict[str, Any]]:
         """
         Generate a streaming response for real-time chat
-        
+
         Args:
             conversation: Current conversation history
             new_message: New user message
             **kwargs: Additional parameters for this LLM
-            
+
         Yields:
             Chunks of the response as they're generated
         """
@@ -145,7 +141,9 @@ class BaseLLM(ABC):
         return {
             "model_name": self.model_name,
             "provider": self.__class__.__name__,
-            "config": {k: v for k, v in self.config.items() if not k.startswith('api_key')}
+            "config": {
+                k: v for k, v in self.config.items() if not k.startswith("api_key")
+            },
         }
 
 
@@ -168,54 +166,49 @@ class MockLLM(BaseLLM):
         ]
 
     async def generate_response(
-        self, 
-        conversation: ConversationHistory,
-        new_message: str,
-        **kwargs
+        self, conversation: ConversationHistory, new_message: str, **kwargs
     ) -> str:
         """Generate a mock medical response"""
         import random
-        
+
         # Add user message to conversation
         conversation.add_message("user", new_message)
-        
+
         # Simulate processing delay
         import asyncio
+
         await asyncio.sleep(1)
-        
+
         # Choose a contextual response
         response = random.choice(self.responses)
-        
+
         # Add assistant message to conversation
         conversation.add_message("assistant", response)
-        
+
         return response
 
     async def generate_streaming_response(
-        self, 
-        conversation: ConversationHistory,
-        new_message: str,
-        **kwargs
+        self, conversation: ConversationHistory, new_message: str, **kwargs
     ) -> AsyncIterator[Dict[str, Any]]:
         """Generate a streaming mock response"""
         import asyncio
-        
+
         # Don't add user message here - generate_response will handle it
         response = await self.generate_response(conversation, new_message)
-        
+
         # Simulate streaming by yielding word by word with proper format
         words = response.split()
         for word in words:
             yield {"type": "content", "text": f"{word} "}
             await asyncio.sleep(0.1)
-            
+
         # Signal completion
         yield {"type": "stop"}
 
     def validate_config(self) -> bool:
         """Mock LLM is always valid"""
         return True
-    
+
     async def health_check(self) -> bool:
         """Mock LLM health check - always healthy"""
         return True
@@ -223,7 +216,7 @@ class MockLLM(BaseLLM):
 
 class LLMFactory:
     """Factory for creating LLM instances"""
-    
+
     _providers = {
         "mock": MockLLM,
         # We'll add Claude, OpenAI, etc. in future features
@@ -233,17 +226,19 @@ class LLMFactory:
     def create_llm(cls, provider: str, **kwargs) -> BaseLLM:
         """
         Create an LLM instance
-        
+
         Args:
             provider: LLM provider name ("mock", "claude", "openai", etc.)
             **kwargs: Configuration for the LLM
-            
+
         Returns:
             Configured LLM instance
         """
         if provider not in cls._providers:
-            raise ValueError(f"Unknown LLM provider: {provider}. Available: {list(cls._providers.keys())}")
-        
+            raise ValueError(
+                f"Unknown LLM provider: {provider}. Available: {list(cls._providers.keys())}"
+            )
+
         llm_class = cls._providers[provider]
         return llm_class(**kwargs)
 

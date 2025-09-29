@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from typing import Optional, List
 
+
 class PromptResponse(BaseModel):
     id: str
     name: str
@@ -12,12 +13,14 @@ class PromptResponse(BaseModel):
     updated_at: str
     is_active: bool
 
+
 class PromptUpdateRequest(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     content: Optional[str] = None
     category: Optional[str] = None
     is_active: Optional[bool] = None
+
 
 class PromptCreateRequest(BaseModel):
     id: str

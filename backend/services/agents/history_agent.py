@@ -34,14 +34,14 @@ class HistoryTakingAgent(Agent):
                 text="I'll capture a few history points.",
                 data={"history": data},
             )
-        
+
         # Use LLM to extract structured history
         system = HISTORY_TEMPLATE
         messages = [
             {"role": "system", "content": system},
             {"role": "user", "content": f"Extract medical history from: {user_text}"},
         ]
-        
+
         try:
             response = llm(messages)
             # Try to parse JSON response
@@ -62,12 +62,12 @@ class HistoryTakingAgent(Agent):
             }
             if "day" in txt or "week" in txt:
                 data["history_of_presenting_complaint"] = "Duration mentioned."
-        
+
         return AgentResult(
             text="Medical history captured.",
             data={
                 "agent": "history",
                 "history": data,
-                "extracted_symptoms": data.get("presenting_complaint", user_text)
+                "extracted_symptoms": data.get("presenting_complaint", user_text),
             },
         )

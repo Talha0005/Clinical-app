@@ -60,8 +60,11 @@ export const DigiClinic = () => {
       try {
         const response = await apiFetch("/api/models/current", { auth: true, token });
         if (response.ok) {
-          const data = await response.json();
-          setCurrentModel(data.model);
+          const data = await response.json().catch(() => null);
+          const modelId = data?.model || data?.current_model;
+          if (typeof modelId === "string" && modelId.trim().length > 0) {
+            setCurrentModel(modelId);
+          }
         }
       } catch (error) {
         console.error("Failed to fetch current model:", error);

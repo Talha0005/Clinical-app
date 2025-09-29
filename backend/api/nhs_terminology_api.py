@@ -8,6 +8,7 @@ import logging
 # Fix import path for Railway deployment
 import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from medical.nhs_terminology import NHSTerminologyServer
@@ -18,6 +19,7 @@ router = APIRouter(prefix="/api/terminology", tags=["NHS Terminology"])
 
 class TerminologySearchRequest(BaseModel):
     """Request model for terminology search."""
+
     query: str
     system: str = "snomed"  # snomed, dmd, icd10
     limit: int = 10
@@ -25,12 +27,14 @@ class TerminologySearchRequest(BaseModel):
 
 class TerminologyValidateRequest(BaseModel):
     """Request model for code validation."""
+
     code: str
     system: str  # snomed, dmd, icd10
 
 
 class TerminologyResponse(BaseModel):
     """Response model for terminology operations."""
+
     success: bool
     data: Optional[List[dict]] = None
     error: Optional[str] = None
@@ -46,7 +50,7 @@ async def health_check():
                 "status": "healthy" if is_healthy else "unhealthy",
                 "service": "NHS Terminology Server",
                 "environment": server.environment,
-                "fhir_url": server.fhir_base_url
+                "fhir_url": server.fhir_base_url,
             }
     except Exception as e:
         logger.error(f"Health check failed: {e}")
@@ -65,29 +69,27 @@ async def search_terminology(request: TerminologySearchRequest):
             elif request.system == "icd10":
                 concepts = await server.search_icd10(request.query, request.limit)
             else:
-                raise HTTPException(status_code=400, detail=f"Unknown system: {request.system}")
-            
+                raise HTTPException(
+                    status_code=400, detail=f"Unknown system: {request.system}"
+                )
+
             # Convert to dict format
             results = []
             for concept in concepts:
-                results.append({
-                    "code": concept.code,
-                    "display": concept.display,
-                    "system": concept.system,
-                    "version": concept.version
-                })
-            
-            return TerminologyResponse(
-                success=True,
-                data=results
-            )
-            
+                results.append(
+                    {
+                        "code": concept.code,
+                        "display": concept.display,
+                        "system": concept.system,
+                        "version": concept.version,
+                    }
+                )
+
+            return TerminologyResponse(success=True, data=results)
+
     except Exception as e:
         logger.error(f"Search failed: {e}")
-        return TerminologyResponse(
-            success=False,
-            error=str(e)
-        )
+        return TerminologyResponse(success=False, error=str(e))
 
 
 @router.post("/validate")
@@ -98,15 +100,17 @@ async def validate_code(request: TerminologyValidateRequest):
             system_urls = {
                 "snomed": server.SYSTEMS["snomed_uk"],
                 "dmd": server.SYSTEMS["dmd"],
-                "icd10": server.SYSTEMS["icd10"]
+                "icd10": server.SYSTEMS["icd10"],
             }
-            
+
             system_url = system_urls.get(request.system.lower())
             if not system_url:
-                raise HTTPException(status_code=400, detail=f"Unknown system: {request.system}")
-            
+                raise HTTPException(
+                    status_code=400, detail=f"Unknown system: {request.system}"
+                )
+
             is_valid = await server.validate_code(request.code, system_url)
-            
+
             # Try to get more details if valid
             details = None
             if is_valid:
@@ -116,16 +120,16 @@ async def validate_code(request: TerminologyValidateRequest):
                         details = {
                             "display": concept.display,
                             "system": concept.system,
-                            "active": True
+                            "active": True,
                         }
-            
+
             return {
                 "valid": is_valid,
                 "code": request.code,
                 "system": request.system,
-                "details": details
+                "details": details,
             }
-            
+
     except Exception as e:
         logger.error(f"Validation failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -137,10 +141,12 @@ async def get_snomed_concept(code: str):
     try:
         async with NHSTerminologyServer() as server:
             concept = await server.get_snomed_concept(code)
-            
+
             if not concept:
-                raise HTTPException(status_code=404, detail=f"SNOMED concept {code} not found")
-            
+                raise HTTPException(
+                    status_code=404, detail=f"SNOMED concept {code} not found"
+                )
+
             return {
                 "code": concept.code,
                 "display": concept.display,
@@ -148,9 +154,9 @@ async def get_snomed_concept(code: str):
                 "version": concept.version,
                 "designation": concept.designation,
                 "property": concept.property,
-                "browser_url": f"https://termbrowser.nhs.uk/?perspective=full&conceptId1={code}"
+                "browser_url": f"https://termbrowser.nhs.uk/?perspective=full&conceptId1={code}",
             }
-            
+
     except HTTPException:
         raise
     except Exception as e:
@@ -159,33 +165,37 @@ async def get_snomed_concept(code: str):
 
 
 @router.post("/map/snomed-to-icd10")
-async def map_snomed_to_icd10(snomed_code: str = Query(..., description="SNOMED CT code to map")):
+async def map_snomed_to_icd10(
+    snomed_code: str = Query(..., description="SNOMED CT code to map")
+):
     """Map a SNOMED CT code to ICD-10."""
     try:
         async with NHSTerminologyServer() as server:
             mappings = await server.map_snomed_to_icd10(snomed_code)
-            
+
             if not mappings:
                 return {
                     "snomed_code": snomed_code,
                     "mappings": [],
-                    "message": "No ICD-10 mappings found"
+                    "message": "No ICD-10 mappings found",
                 }
-            
+
             results = []
             for mapping in mappings:
-                results.append({
-                    "code": mapping.code,
-                    "display": mapping.display,
-                    "system": mapping.system
-                })
-            
+                results.append(
+                    {
+                        "code": mapping.code,
+                        "display": mapping.display,
+                        "system": mapping.system,
+                    }
+                )
+
             return {
                 "snomed_code": snomed_code,
                 "mappings": results,
-                "count": len(results)
+                "count": len(results),
             }
-            
+
     except Exception as e:
         logger.error(f"Mapping failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))

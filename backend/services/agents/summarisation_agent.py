@@ -28,9 +28,7 @@ class SummarisationAgent(Agent):
                 "summary": user_text[:200],
                 "urgency": urgency,
                 "recommendation": (
-                    "Escalate to clinician"
-                    if urgency != "routine"
-                    else "Routine care"
+                    "Escalate to clinician" if urgency != "routine" else "Routine care"
                 ),
                 "codes": {"snomed_ct": "", "icd10": ""},
             }
@@ -47,7 +45,7 @@ class SummarisationAgent(Agent):
                 "history": history or {},
             }
             return AgentResult(text=patient_summary, data=data)
-        
+
         # Use LLM for comprehensive summarisation
         system = SUMMARISATION_TEMPLATE
         context = f"""
@@ -55,12 +53,12 @@ class SummarisationAgent(Agent):
         History: {json.dumps(history or {}, indent=2)}
         Triage: {json.dumps(triage or {}, indent=2)}
         """
-        
+
         messages = [
             {"role": "system", "content": system},
             {"role": "user", "content": f"Create summary for: {context}"},
         ]
-        
+
         try:
             response = llm(messages)
             data = json.loads(response)
@@ -76,9 +74,7 @@ class SummarisationAgent(Agent):
                 "summary": user_text[:200],
                 "urgency": urgency,
                 "recommendation": (
-                    "Escalate to clinician"
-                    if urgency != "routine"
-                    else "Routine care"
+                    "Escalate to clinician" if urgency != "routine" else "Routine care"
                 ),
                 "codes": {"snomed_ct": "", "icd10": ""},
             }
@@ -88,7 +84,7 @@ class SummarisationAgent(Agent):
                 "red_flags": red_flags,
                 "history": history or {},
             }
-        
+
         return AgentResult(
             text=data.get("patient_summary", "Summary completed."),
             data={
@@ -97,6 +93,6 @@ class SummarisationAgent(Agent):
                 "clinician_note": data.get("clinician_note", {}),
                 "red_flags": data.get("red_flags", []),
                 "history": history or {},
-                "urgency": data.get("clinician_note", {}).get("urgency", "routine")
-            }
+                "urgency": data.get("clinician_note", {}).get("urgency", "routine"),
+            },
         )

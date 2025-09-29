@@ -151,6 +151,7 @@ class DigiCareMCPServer:
         """Setup HTTP routes."""
 
         from .routes import main, tools, mcp, oauth
+
         self.app.include_router(main.router)
         self.app.include_router(tools.router)
         self.app.include_router(mcp.create_mcp_router(self))

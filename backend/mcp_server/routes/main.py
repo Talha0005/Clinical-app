@@ -4,6 +4,7 @@ from fastapi import APIRouter
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
+
 @router.get("/")
 async def root():
     """Root endpoint."""
@@ -15,6 +16,7 @@ async def root():
         "mcp_endpoint": "/mcp",
         "transport": "streamable_http",
     }
+
 
 @router.get("/health")
 async def health():
