@@ -36,7 +36,7 @@ def _load_secret_key() -> str:
     # Last resort: dev fallback for local runs
     dev_secret = "dev-secret-please-change"
     print(
-        "⚠️  JWT_SECRET not set; using development fallback. Set JWT_SECRET in your environment or backend/.env."
+        "JWT_SECRET not set; using development fallback. Set JWT_SECRET in your environment or backend/.env."
     )
     return dev_secret
 
@@ -60,7 +60,7 @@ def verify_password(username: str, password: str) -> bool:
     # Dev fallback when no password is configured in env
     if username.lower() == "doctor" and password == "doctor":
         print(
-            "🔓 Using development default credentials for 'doctor'. Configure DOCTOR_PASSWORD to override."
+            "Using development default credentials for 'doctor'. Configure DOCTOR_PASSWORD to override."
         )
         return True
     return False

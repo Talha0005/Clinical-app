@@ -171,39 +171,94 @@ export const DigiClinic = () => {
 
     setMessages(prev => [...prev, userMessage]);
     
-    // Initialize agent chain
+    // Initialize agent chain (supports extended pipeline when backend emits it)
+    const labelFor = (id: string) => ({
+      sentiment_risk: 'Sentiment & Risk',
+      avatar: 'Avatar',
+      history: 'History Taking',
+      triage: 'Symptom Triage',
+      support: 'Clinical Support Checks',
+      clinical_reasoning: 'Clinical Reasoning',
+      summarisation: 'Summarisation',
+      medical_record: 'Medical Record',
+      coding: 'Clinical Coding',
+      hitl: 'Human-in-the-Loop',
+    } as const)[id as keyof any] || id;
+
     setIsAgentProcessing(true);
     setAgentProgress([
       {
+        id: 'sentiment_risk',
+        name: labelFor('sentiment_risk'),
+        status: 'pending',
+        icon: <div className="h-4 w-4 rounded-full bg-gray-300" />,
+        description: 'Checking tone and risk indicators',
+      },
+      {
         id: 'avatar',
-        name: 'Avatar',
+        name: labelFor('avatar'),
         status: 'active',
         icon: <div className="h-4 w-4 rounded-full bg-blue-500" />,
-        description: 'Understanding your message'
+        description: 'Understanding your message',
       },
       {
         id: 'history',
-        name: 'History Taking',
+        name: labelFor('history'),
         status: 'pending',
         icon: <div className="h-4 w-4 rounded-full bg-gray-300" />,
-        description: 'Collecting medical history'
+        description: 'Collecting medical history',
       },
       {
         id: 'triage',
-        name: 'Symptom Triage',
+        name: labelFor('triage'),
         status: 'pending',
         icon: <div className="h-4 w-4 rounded-full bg-gray-300" />,
-        description: 'Assessing urgency'
+        description: 'Assessing urgency',
+      },
+      {
+        id: 'support',
+        name: labelFor('support'),
+        status: 'pending',
+        icon: <div className="h-4 w-4 rounded-full bg-gray-300" />,
+        description: 'Applying red flags & NICE topics',
+      },
+      {
+        id: 'clinical_reasoning',
+        name: labelFor('clinical_reasoning'),
+        status: 'pending',
+        icon: <div className="h-4 w-4 rounded-full bg-gray-300" />,
+        description: 'Weighing likely causes',
       },
       {
         id: 'summarisation',
-        name: 'Summarisation',
+        name: labelFor('summarisation'),
         status: 'pending',
         icon: <div className="h-4 w-4 rounded-full bg-gray-300" />,
-        description: 'Creating summary'
-      }
+        description: 'Creating summary',
+      },
+      {
+        id: 'medical_record',
+        name: labelFor('medical_record'),
+        status: 'pending',
+        icon: <div className="h-4 w-4 rounded-full bg-gray-300" />,
+        description: 'Building EHR & FHIR bundle',
+      },
+      {
+        id: 'coding',
+        name: labelFor('coding'),
+        status: 'pending',
+        icon: <div className="h-4 w-4 rounded-full bg-gray-300" />,
+        description: 'Assigning SNOMED/ICD codes',
+      },
+      {
+        id: 'hitl',
+        name: labelFor('hitl'),
+        status: 'pending',
+        icon: <div className="h-4 w-4 rounded-full bg-gray-300" />,
+        description: 'Routing to human if needed',
+      },
     ]);
-    setCurrentAgent('Avatar');
+    setCurrentAgent(labelFor('avatar'));
     setIsTyping(true);
 
     try {
@@ -286,7 +341,8 @@ export const DigiClinic = () => {
                   }
                   return agent;
                 }));
-                setCurrentAgent(data.status === 'active' ? data.agent : '');
+                // Show friendly agent label
+                setCurrentAgent(data.status === 'active' ? labelFor(data.agent) : '');
               } else if (data.type === 'content') {
                 // Update the streaming message with new content
                 setMessages(prev => prev.map(msg => 

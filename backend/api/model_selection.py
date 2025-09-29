@@ -17,6 +17,7 @@ from services.model_abstraction_layer import (
 )
 from services.agents import (
     Orchestrator,
+    ExtendedOrchestrator,
     AgentContext,
 )
 from services.vision_processing import (
@@ -251,7 +252,7 @@ async def agent_health(
         raw = os.getenv("AGENTS_ENABLED", "false") or "false"
         enabled = raw.strip().lower() in {"1", "true", "yes", "y", "on"}
         # Basic import check
-        orch_ok = Orchestrator is not None  # type: ignore[name-defined]
+        orch_ok = ExtendedOrchestrator is not None  # type: ignore[name-defined]
         return {
             "agents_enabled": enabled,
             "env_value": raw,
@@ -444,7 +445,7 @@ async def chat_with_model(
             logger.info(
                 f"🤖 Starting agent chain for message: {request.message[:100]}..."
             )
-            orch = Orchestrator()
+            orch = ExtendedOrchestrator()
 
             # Create LLM wrapper for agents
             def llm_wrapper(messages):
@@ -466,7 +467,7 @@ async def chat_with_model(
                     logger.info(f"🧠 LLM response: {content[:100]}...")
                     return content
                 except Exception as e:
-                    logger.error(f"❌ LLM wrapper failed: {e}")
+                    logger.error(f"LLM wrapper failed: {e}")
                     return "I apologize, but I'm having trouble generating a response right now."
 
             agent_out = orch.handle_turn(
@@ -537,7 +538,7 @@ async def chat_with_model_stream(
                 logger.info(
                     f"🤖 Starting agent chain for message: {request.message[:100]}..."
                 )
-                orch = Orchestrator()
+                orch = ExtendedOrchestrator()
 
                 # Create LLM wrapper for agents
                 def llm_wrapper(messages):
@@ -586,7 +587,7 @@ async def chat_with_model_stream(
                         logger.info(f"🧠 LLM response: {content[:100]}...")
                         return content
                     except Exception as e:
-                        logger.error(f"❌ LLM wrapper failed: {e}")
+                        logger.error(f"LLM wrapper failed: {e}")
                         return "I apologize, but I'm having trouble generating a response right now."
 
                 # Progress callback for real-time updates
@@ -827,7 +828,7 @@ async def chat_with_model_and_images(
         )
 
         if agents_enabled:
-            orch = Orchestrator()
+            orch = ExtendedOrchestrator()
             agent_out = orch.handle_turn(
                 full_message,
                 ctx=AgentContext(user_id=current_user),
@@ -942,7 +943,7 @@ async def chat_with_model_stream_and_images(
 
             if agents_enabled:
                 # Run the MVP chain: Avatar → History → Triage → Summarisation
-                orch = Orchestrator()
+                orch = ExtendedOrchestrator()
                 agent_out = orch.handle_turn(
                     full_message,
                     ctx=AgentContext(user_id=current_user),

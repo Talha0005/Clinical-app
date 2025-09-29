@@ -572,7 +572,7 @@ if os.path.exists(frontend_dist):
     assets_dir = os.path.join(frontend_dist, "assets")
     if os.path.exists(assets_dir):
         app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
-        print(f"✅ Mounted /assets from: {assets_dir}")
+        print(f"Mounted /assets from: {assets_dir}")
 
     # Serve favicon and static files from project root
     @app.get("/favicon.svg")
@@ -600,7 +600,7 @@ if os.path.exists(frontend_dist):
         # For SPA routing, serve index.html for non-asset requests
         return FileResponse(os.path.join(frontend_dist, "index.html"))
 
-    print(f"✅ Frontend server configured for: {frontend_dist}")
+    print(f"Frontend server configured for: {frontend_dist}")
 else:
 
     @app.get("/")
@@ -615,15 +615,15 @@ else:
 @app.on_event("startup")
 async def startup_event():
     """Initialize Phase 2 services and check environment variables."""
-    print("🚀 DigiClinic Phase 2 - Enhanced Medical Intelligence Starting...")
-    print("🔍 Post-startup environment variable check:")
+    print("DigiClinic Phase 2 - Enhanced Medical Intelligence Starting...")
+    print("Post-startup environment variable check:")
     # Don't expose API key values in logs for security
-    print(f"ANTHROPIC_KEY configured: {'✅' if os.getenv('ANTHROPIC_KEY') else '❌'}")
-    print(f"OpenAI API configured: {'✅' if os.getenv('OPENAI_API_KEY') else '❌'}")
-    print(f"Google API configured: {'✅' if os.getenv('GOOGLE_API_KEY') else '❌'}")
+    print(f"ANTHROPIC_KEY configured: {'YES' if os.getenv('ANTHROPIC_KEY') else 'NO'}")
+    print(f"OpenAI API configured: {'YES' if os.getenv('OPENAI_API_KEY') else 'NO'}")
+    print(f"Google API configured: {'YES' if os.getenv('GOOGLE_API_KEY') else 'NO'}")
 
     # Initialize Phase 2 Medical Observability
-    print("🔬 Initializing Medical Observability...")
+    print("Initializing Medical Observability...")
     try:
         init_medical_observability(
             langfuse_public_key=os.getenv("LANGFUSE_PUBLIC_KEY"),
@@ -631,22 +631,22 @@ async def startup_event():
             langfuse_host=os.getenv("LANGFUSE_HOST"),
             environment=os.getenv("RAILWAY_ENVIRONMENT_NAME", "development"),
         )
-        print("✅ Medical Observability initialized")
+        print("Medical Observability initialized")
     except Exception as e:
         print(
-            f"⚠️ Medical Observability initialization failed (continuing without): {e}"
+            f"Medical Observability initialization failed (continuing without): {e}"
         )
 
-    print("🎯 Phase 2 Services Available:")
+    print("Phase 2 Services Available:")
     print("  - Enhanced Clinical Reasoning Agents")
     print("  - NHS Terminology Server Integration (SNOMED CT, ICD-10, dm+d)")
     print("  - Medical Image Analysis with AI Vision")
     print("  - Evidence-Based Medical Knowledge Base")
     print("  - Medical Compliance & Observability Tracking")
-    print("🌟 DigiClinic Phase 2 Ready!")
+    print("DigiClinic Phase 2 Ready!")
 
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
-    print(f"🚀 Starting server on port {port}")
+    print(f"Starting server on port {port}")
     uvicorn.run(app, host="0.0.0.0", port=port)
