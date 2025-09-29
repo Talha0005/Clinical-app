@@ -128,8 +128,10 @@ class NHSTerminologyService:
         """
         self.base_url = base_url.rstrip("/")
         self.auth_url = auth_url
-        self.client_id = client_id
-        self.client_secret = client_secret
+        # Use environment variables if credentials not provided
+        import os
+        self.client_id = client_id or os.getenv("NHS_TERMINOLOGY_CLIENT_ID")
+        self.client_secret = client_secret or os.getenv("NHS_TERMINOLOGY_CLIENT_SECRET")
 
         # HTTP client with timeout configuration
         timeout = httpx.Timeout(30.0)

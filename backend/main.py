@@ -50,6 +50,7 @@ from api.auth import router as auth_router
 from api.clinical_codes import router as clinical_codes_router
 from api.test_voice import router as test_voice_router
 from api.patients import router as patients_router
+from api.synthea_api import router as synthea_router
 from services.medical_observability import init_medical_observability
 from services.evaluation import get_evaluation_summary, get_evaluation_history
 from services.audit import read_audit
@@ -101,6 +102,7 @@ app.include_router(auth_router)
 app.include_router(clinical_codes_router)
 app.include_router(test_voice_router)
 app.include_router(patients_router)
+app.include_router(synthea_router)
 
 
 # NHS Service Search endpoints
