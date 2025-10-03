@@ -1,0 +1,46 @@
+# Core MCP dependencies
+mcp>=1.0.0
+
+# Web framework and ASGI server
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+
+# HTTP and middleware
+starlette>=0.27.0
+aiofiles>=23.0.0
+
+# Web scraping
+playwright>=1.40.0
+
+# Authentication
+python-jose[cryptography]>=3.3.0
+python-multipart>=0.0.6
+python-dotenv>=1.0.0
+
+# HTTP client for NHS Terminology Server
+aiohttp>=3.9.0
+
+# LLM & Observability
+litellm>=1.50.0
+langfuse>=2.50.0
+
+# Multimodal Processing
+assemblyai>=0.30.0
+websockets>=12.0
+
+# Phase 2 Medical Intelligence Dependencies
+# Medical Image Processing
+Pillow>=10.0.0
+numpy>=1.24.0
+opencv-python-headless>=4.8.0
+
+# NHS Terminology & FHIR
+httpx>=0.27.0
+cachetools>=5.3.0
+
+# Medical Data Processing
+pydantic>=2.0.0
+
+# Testing Infrastructure
+pytest>=8.0.0
+pytest-asyncio>=0.24.0

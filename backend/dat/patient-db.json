@@ -1,0 +1,89 @@
+[
+  {
+    "name": "John Smith",
+    "national_insurance": "AB123456C",
+    "age": 45,
+    "medical_history": [
+      "Type 2 Diabetes",
+      "Hypertension",
+      "Mild Asthma"
+    ],
+    "current_medications": [
+      "Metformin 500mg twice daily",
+      "Amlodipine 5mg once daily",
+      "Salbutamol inhaler as needed"
+    ]
+  },
+  {
+    "name": "Sarah Johnson",
+    "national_insurance": "CD789012D",
+    "age": 32,
+    "medical_history": [
+      "Migraine",
+      "Anxiety disorder"
+    ],
+    "current_medications": [
+      "Sumatriptan 50mg as needed",
+      "Sertraline 50mg once daily"
+    ]
+  },
+  {
+    "name": "Robert Brown",
+    "national_insurance": "EF345678E",
+    "age": 67,
+    "medical_history": [
+      "Coronary artery disease",
+      "Hyperlipidemia",
+      "Osteoarthritis"
+    ],
+    "current_medications": [
+      "Aspirin 75mg once daily",
+      "Atorvastatin 20mg once daily",
+      "Ramipril 5mg once daily",
+      "Paracetamol 500mg as needed"
+    ]
+  },
+  {
+    "name": "Emma Wilson",
+    "national_insurance": "GH901234F",
+    "age": 28,
+    "medical_history": [
+      "Polycystic ovary syndrome (PCOS)",
+      "Iron deficiency anemia"
+    ],
+    "current_medications": [
+      "Metformin 500mg once daily",
+      "Ferrous sulfate 200mg once daily",
+      "Combined oral contraceptive pill"
+    ]
+  },
+  {
+    "name": "Michael Davis",
+    "national_insurance": "IJ567890G",
+    "age": 55,
+    "medical_history": [
+      "Chronic obstructive pulmonary disease (COPD)",
+      "Depression",
+      "Gastroesophageal reflux disease (GERD)"
+    ],
+    "current_medications": [
+      "Tiotropium bromide inhaler once daily",
+      "Salbutamol inhaler as needed",
+      "Citalopram 20mg once daily",
+      "Omeprazole 20mg once daily"
+    ]
+  },
+  {
+    "name": "John Doe",
+    "national_insurance": "PA276510Z",
+    "age": 45,
+    "medical_history": [
+      "Hypertension",
+      "Type 2 Diabetes",
+      "Suspected Upper Respiratory Infection"
+    ],
+    "current_medications": [
+      "Metformin"
+    ]
+  }
+]

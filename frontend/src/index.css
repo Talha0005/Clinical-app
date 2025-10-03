@@ -1,0 +1,124 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    /* Medical theme colors */
+    --background: 0 0% 98%;
+    --foreground: 213 17% 23%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 213 17% 23%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 213 17% 23%;
+
+    /* Medical blue primary */
+    --primary: 199 95% 48%;
+    --primary-foreground: 0 0% 100%;
+
+    /* Soft medical grays */
+    --secondary: 210 11% 96%;
+    --secondary-foreground: 213 17% 23%;
+
+    --muted: 210 11% 96%;
+    --muted-foreground: 215 13% 65%;
+
+    --accent: 208 100% 85%;
+    --accent-foreground: 213 17% 23%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 214 20% 90%;
+    --input: 214 20% 90%;
+    --ring: 199 95% 48%;
+
+    /* Medical specific colors */
+    --medical-blue: 199 95% 48%;
+    --medical-blue-light: 208 100% 85%;
+    --medical-blue-dark: 199 95% 35%;
+    --medical-green: 142 76% 36%;
+    --medical-warning: 45 93% 47%;
+    --medical-bg: 0 0% 98%;
+    --medical-surface: 0 0% 100%;
+    --medical-text: 213 17% 23%;
+    --medical-text-muted: 215 13% 65%;
+    
+    /* Chat specific */
+    --chat-bubble-doctor: 208 100% 97%;
+    --chat-bubble-user: 199 95% 48%;
+    --chat-input-bg: 0 0% 100%;
+
+    --radius: 0.5rem;
+
+    --sidebar-background: 0 0% 98%;
+
+    --sidebar-foreground: 240 5.3% 26.1%;
+
+    --sidebar-primary: 240 5.9% 10%;
+
+    --sidebar-primary-foreground: 0 0% 98%;
+
+    --sidebar-accent: 240 4.8% 95.9%;
+
+    --sidebar-accent-foreground: 240 5.9% 10%;
+
+    --sidebar-border: 220 13% 91%;
+
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
