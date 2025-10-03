@@ -1,0 +1,9 @@
+{
+  "validation_timestamp": "2025-10-03T07:38:30.332829",
+  "data_directory": "data\\synthea\\synthea-20251003-123830-100",
+  "bundle_results": [],
+  "statistics": {},
+  "summary": {
+    "error": "No FHIR bundles found"
+  }
+}

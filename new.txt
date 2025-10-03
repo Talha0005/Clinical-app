@@ -1,0 +1,31 @@
+# Environment variables for DigiClinic Backend
+
+# General
+RAILWAY_ENVIRONMENT_NAME=development
+RATE_LIMIT_ENABLED=true
+PORT=8000
+
+# LLM API Keys
+ANTHROPIC_KEY=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
+OPENAI_API_KEY=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
+GOOGLE_API_KEY=AIzaSyATNiIcm__WxzS23pORijQCZMcDAVO28O0
+
+# Medical Observability (Langfuse)
+LANGFUSE_PUBLIC_KEY=pk-lf-cebad1b9-5a37-4ff0-a112-57314a0ff554
+LANGFUSE_SECRET_KEY=sk-lf-3ab270df-e31d-47fd-a86f-3cdb0900ba9e
+LANGFUSE_HOST=https://cloud.langfuse.com
+
+# Voice Processing
+ASSEMBLYAI_API_KEY=e5e8faaf64f24177a220a938f13bf537
+
+# JWT Secret
+JWT_SECRET=digiclinic_secret_key_change_in_production_2024
+
+# User credentials
+# Replace 'admin' with your desired username and set a password.
+# You can add more users by following the same pattern: <USERNAME>_PASSWORD=...
+ADMIN_PASSWORD=admin
+
+# NHS API Credentials
+NHS_TERMINOLOGY_CLIENT_ID=Black_Swan_Advisors_Ltd
+NHS_TERMINOLOGY_CLIENT_SECRET=5706bcTLtho4urMnJ6BpWoT2LPlhAOdU

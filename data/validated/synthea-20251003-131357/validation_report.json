@@ -1,0 +1,14 @@
+{
+  "validation_timestamp": "2025-10-03T08:13:57.083903",
+  "data_directory": "C:\\Users\\Talha\\Downloads\\freelaunce_v3\\freelaunce\\data\\synthea\\synthea-20251003-131356-100",
+  "statistics": {
+    "total_bundles": 0,
+    "valid_bundles": 0,
+    "validation_success_rate": 0,
+    "total_codes": 0,
+    "valid_codes": 0,
+    "code_success_rate": 0,
+    "average_validation_score": 0
+  },
+  "bundle_results": []
+}

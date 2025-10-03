@@ -1,0 +1,17 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Run DigiClinic backend (uvicorn 8808)",
+			"type": "shell",
+			"command": "pwsh",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"cd 'c:\\Users\\Talha\\Downloads\\freelaunce\\digiclinic-main 10\\digiclinic-main 10\\backend'; python -m uvicorn main:app --host 127.0.0.1 --port 8808"
+			],
+			"isBackground": true,
+			"group": "build"
+		}
+	]
+}
