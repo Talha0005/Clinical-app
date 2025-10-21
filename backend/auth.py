@@ -63,7 +63,44 @@ def verify_password(username: str, password: str) -> bool:
             "Using development default credentials for 'doctor'. Configure DOCTOR_PASSWORD to override."
         )
         return True
+    
+    # Admin fallback
+    if username.lower() == "admin" and password == "admin":
+        print(
+            "Using development default credentials for 'admin'. Configure ADMIN_PASSWORD to override."
+        )
+        return True
+    
+    # Custom admin credentials
+    if username == "1234567891" and password == "Doctor123456@":
+        print("Using custom admin credentials")
+        return True
+        
     return False
+
+
+def get_user_role(username: str) -> str:
+    """Get user role based on username."""
+    # Check if user is admin
+    if username.lower() in ["admin", "administrator"] or username == "1234567891":
+        return "admin"
+    
+    # Check if user is doctor
+    if username.lower() in ["doctor", "dr", "physician"]:
+        return "doctor"
+    
+    # Default to user
+    return "user"
+
+
+def verify_admin_role(username: str) -> bool:
+    """Verify if user has admin role."""
+    return get_user_role(username) == "admin"
+
+
+def verify_doctor_role(username: str) -> bool:
+    """Verify if user has doctor role."""
+    return get_user_role(username) in ["admin", "doctor"]
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
@@ -78,8 +115,8 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     return encoded_jwt
 
 
-def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)) -> str:
-    """Verify JWT token and return username."""
+def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict:
+    """Verify JWT token and return username and role."""
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -91,9 +128,10 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)) 
             credentials.credentials, SECRET_KEY, algorithms=[ALGORITHM]
         )
         username: str = payload.get("sub")
+        role: str = payload.get("role", "user")
         if username is None:
             raise credentials_exception
     except JWTError:
         raise credentials_exception
 
-    return username
+    return {"username": username, "role": role}

@@ -1,0 +1,4 @@
+{"ts": 1759501710.2176993, "actor": "unknown", "type": "prompt_update", "target": "test_prompt", "details": {"changed_fields": ["is_active"], "version": 2, "category": "test", "critical": false}}
+{"ts": 1759501710.226656, "actor": "test_user", "type": "prompt_update", "target": "test_prompt", "details": {"changed_fields": ["name", "content"], "version": 2, "category": "test", "critical": false}}
+{"ts": 1759501710.2837849, "actor": "test_doctor", "type": "prompt_update", "target": "test_prompt", "details": {"changed_fields": ["content"], "version": 2, "category": "test", "critical": false}}
+{"ts": 1759501710.3060923, "actor": "doctor123", "type": "prompt_update", "target": "medical_test", "details": {"changed_fields": ["content"], "version": 2, "category": "medical", "critical": true}}

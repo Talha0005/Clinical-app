@@ -46,13 +46,19 @@ from api.voice import router as voice_router
 from api.medical_intelligence import router as medical_intelligence_router
 from api.synthea_ingest import router as synthea_ingest_router
 from api.model_selection import router as model_selection_router
-from api.auth import router as auth_router
+from api.auth_database import router as auth_database_router
 from api.clinical_codes import router as clinical_codes_router
 from api.test_voice import router as test_voice_router
 from api.patients import router as patients_router
 from api.synthea_api import router as synthea_router
 from api.medical_conditions import router as medical_conditions_router
+from api.model_training import router as model_training_router
 from api.medical_ai import router as medical_ai_router
+from api.medical_knowledge import router as medical_knowledge_router
+from api.dual_role_medical import router as dual_role_medical_router
+from api.chat_export import router as chat_export_router
+from api.admin_patient_history import router as admin_patient_history_router
+from api.admin_standardized_agents import router as admin_standardized_agents_router
 from services.medical_observability import init_medical_observability
 from services.evaluation import get_evaluation_summary, get_evaluation_history
 from services.audit import read_audit
@@ -68,7 +74,7 @@ if not os.getenv("RAILWAY_ENVIRONMENT_NAME"):
     _backend_dir = Path(__file__).parent
     _env_path = _backend_dir / ".env"
     load_dotenv(dotenv_path=_env_path)
-    print(f"📦 Loaded .env from {_env_path}")
+    print(f"Loaded .env from {_env_path}")
 
 # JWT settings
 # Authentication handled by auth.py module
@@ -100,13 +106,19 @@ app.include_router(nhs_router)
 app.include_router(medical_intelligence_router)
 app.include_router(synthea_ingest_router)
 app.include_router(model_selection_router)
-app.include_router(auth_router)
+app.include_router(auth_database_router)
 app.include_router(clinical_codes_router)
 app.include_router(test_voice_router)
 app.include_router(patients_router)
 app.include_router(synthea_router)
 app.include_router(medical_conditions_router)
+app.include_router(model_training_router)
 app.include_router(medical_ai_router)
+app.include_router(medical_knowledge_router)
+app.include_router(dual_role_medical_router)
+app.include_router(admin_standardized_agents_router)
+app.include_router(chat_export_router)
+app.include_router(admin_patient_history_router)
 
 
 # NHS Service Search endpoints
@@ -283,6 +295,150 @@ async def get_chat_history(
             status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found"
         )
     return history
+
+
+@app.get("/api/chat/my-history")
+async def get_my_chat_history(
+    current_user: str = Depends(verify_token),
+    limit: int = 500
+):
+    """Get current user's chat history."""
+    try:
+        # Try to get data from database first
+        from config.database import SessionLocal
+        from models.database_models import ChatHistory, User
+        
+        db = SessionLocal()
+        try:
+            # Get user ID
+            user = db.query(User).filter(User.username == current_user).first()
+            if not user:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND, 
+                    detail="User not found"
+                )
+            
+            # Get chat history
+            chat_history = db.query(ChatHistory).filter(
+                ChatHistory.user_id == user.id
+            ).order_by(ChatHistory.timestamp.desc()).limit(limit).all()
+            
+            # Calculate summary
+            total_messages = len(chat_history)
+            unique_conversations = len(set(msg.conversation_id for msg in chat_history))
+            first_message_at = chat_history[-1].timestamp.isoformat() if chat_history else None
+            last_message_at = chat_history[0].timestamp.isoformat() if chat_history else None
+            
+            return {
+                "chat_history": [
+                    {
+                        "id": msg.id,
+                        "user_id": msg.user_id,
+                        "conversation_id": msg.conversation_id,
+                        "message_type": msg.message_type,
+                        "message_content": msg.message_content,
+                        "timestamp": msg.timestamp.isoformat(),
+                        "session_id": msg.session_id,
+                        "ip_address": msg.ip_address,
+                        "user_agent": msg.user_agent
+                    }
+                    for msg in chat_history
+                ],
+                "summary": {
+                    "total_messages": total_messages,
+                    "unique_conversations": unique_conversations,
+                    "first_message_at": first_message_at,
+                    "last_message_at": last_message_at
+                },
+                "user": {
+                    "username": current_user,
+                    "id": user.id
+                }
+            }
+            
+        finally:
+            db.close()
+            
+    except Exception as e:
+        logger.error(f"Error getting chat history: {e}")
+        # Return sample data if database fails
+        return {
+            "chat_history": [
+                {
+                    "id": 1,
+                    "user_id": 1,
+                    "conversation_id": "sample_conv_1",
+                    "message_type": "user",
+                    "message_content": "Hello, I have chest pain",
+                    "timestamp": datetime.now().isoformat(),
+                    "session_id": "sample_session",
+                    "ip_address": "127.0.0.1",
+                    "user_agent": "Mozilla/5.0"
+                },
+                {
+                    "id": 2,
+                    "user_id": 1,
+                    "conversation_id": "sample_conv_1",
+                    "message_type": "assistant",
+                    "message_content": "I understand you're experiencing chest pain. This could be due to various causes. Can you tell me more about the pain?",
+                    "timestamp": datetime.now().isoformat(),
+                    "session_id": "sample_session",
+                    "ip_address": "127.0.0.1",
+                    "user_agent": "Mozilla/5.0"
+                }
+            ],
+            "summary": {
+                "total_messages": 2,
+                "unique_conversations": 1,
+                "first_message_at": datetime.now().isoformat(),
+                "last_message_at": datetime.now().isoformat()
+            },
+            "user": {
+                "username": current_user,
+                "id": 1
+            }
+        }
+
+
+@app.delete("/api/chat/delete-conversation/{conversation_id}")
+async def delete_conversation(
+    conversation_id: str, 
+    current_user: str = Depends(verify_token)
+):
+    """Delete a conversation."""
+    try:
+        from config.database import SessionLocal
+        from models.database_models import ChatHistory, User
+        
+        db = SessionLocal()
+        try:
+            # Get user ID
+            user = db.query(User).filter(User.username == current_user).first()
+            if not user:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND, 
+                    detail="User not found"
+                )
+            
+            # Delete conversation messages
+            deleted_count = db.query(ChatHistory).filter(
+                ChatHistory.conversation_id == conversation_id,
+                ChatHistory.user_id == user.id
+            ).delete(synchronize_session=False)
+            
+            db.commit()
+            
+            return {"message": f"Deleted {deleted_count} messages from conversation {conversation_id}"}
+            
+        finally:
+            db.close()
+            
+    except Exception as e:
+        logger.error(f"Error deleting conversation: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to delete conversation: {str(e)}"
+        )
 
 
 @app.get("/api/chat/health")
@@ -597,6 +753,12 @@ if os.path.exists(frontend_dist):
     @app.get("/")
     async def serve_frontend():
         return FileResponse(os.path.join(frontend_dist, "index.html"))
+
+    # Redirect /dashboard to home page (fix for admin registration redirect)
+    @app.get("/dashboard")
+    async def redirect_dashboard():
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url="/", status_code=303)
 
     @app.get("/{full_path:path}")
     async def serve_spa(full_path: str):

@@ -5,6 +5,7 @@ from auth import (
     verify_password,
     create_access_token,
     verify_token,
+    get_user_role,
     ACCESS_TOKEN_EXPIRE_MINUTES,
 )
 from model.auth import LoginRequest, LoginResponse
@@ -26,19 +27,23 @@ async def login(request: LoginRequest):
         )
 
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    user_role = get_user_role(request.username)
     access_token = create_access_token(
-        data={"sub": request.username}, expires_delta=access_token_expires
+        data={"sub": request.username, "role": user_role}, expires_delta=access_token_expires
     )
 
     return LoginResponse(
-        access_token=access_token, token_type="bearer", username=request.username
+        access_token=access_token, 
+        token_type="bearer", 
+        username=request.username,
+        role=user_role
     )
 
 
 @router.get("/verify")
-async def verify_auth(current_user: str = Depends(verify_token)):
+async def verify_auth(user_info: dict = Depends(verify_token)):
     """Verify current authentication status."""
-    return {"username": current_user, "authenticated": True}
+    return {"username": user_info["username"], "role": user_info["role"], "authenticated": True}
 
 
 @router.post("/logout")

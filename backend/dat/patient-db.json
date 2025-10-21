@@ -85,5 +85,16 @@
     "current_medications": [
       "Metformin"
     ]
+  },
+  {
+    "name": "Integration Test Patient RR",
+    "national_insurance": "RR238461T",
+    "age": 35,
+    "medical_history": [
+      "Test condition"
+    ],
+    "current_medications": [
+      "Test medication"
+    ]
   }
 ]

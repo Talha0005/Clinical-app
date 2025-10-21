@@ -1,25 +1,36 @@
 """
 Medical AI API Endpoints
 Integrates structured medical data with professional prompts for AI responses
+Uses MySQL database for NHS-verified medical knowledge
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Body, Query
 from sqlalchemy.orm import Session
-from models.database_models import get_db
+from config.database import SessionLocal
 from services.medical_ai_agent import create_medical_response
 from llm.base_llm import BaseLLM
 from llm.claude_llm import ClaudeLLM
 from pydantic import BaseModel
 from typing_extensions import Literal
+from typing import Optional
 import logging
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
+# Dependency to get MySQL database session
+def get_mysql_db():
+    """Get MySQL database session"""
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
 class MedicalQueryRequest(BaseModel):
     query: str
-    user_role: Literal["patient", "doctor"] = "patient"
-    session_id: str = None  # Optional session tracking
+    user_role: Literal["Patient", "Doctor"] = "Patient"  # EXACT CLIENT SPECIFICATION: Patient (User Mode) or Doctor (Admin Mode)
+    session_id: Optional[str] = None
 
 class MedicalQueryResponse(BaseModel):
     timestamp: str
@@ -34,14 +45,13 @@ class MedicalQueryResponse(BaseModel):
 @router.post("/medical-query", response_model=dict)
 async def process_medical_query(
     request: MedicalQueryRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_mysql_db)
 ):
     """
-    Main endpoint for medical AI agent queries
+    Main endpoint for medical AI agent queries - EXACT CLIENT SPECIFICATION
     
-    The AI agent responds differently based on user role:
-    - Patient: Empathetic, step-by-step responses with medical disclaimers
-    - Doctor: Detailed, structured medical information following the condition format
+    Doctor (Admin Mode): Complete 14-category structured overview
+    Patient (User Mode): Conversational, empathetic step-by-step responses
     """
     
     try:
@@ -64,7 +74,8 @@ async def process_medical_query(
             "data": response,
             "usage_stats": {
                 "session_id": request.session_id,
-                "processing_time_ms": 500  # Would be calculated in real implementation
+                "processing_time_ms": 500,  # Would be calculated in real implementation
+                "database_used": "MySQL"
             }
         }
         
@@ -79,25 +90,28 @@ async def process_medical_query(
 
 @router.get("/medical-knowledge/summary")
 async def get_medical_knowledge_summary(
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_mysql_db)
 ):
     """Get summary of NHS-verified medical knowledge available to the AI agent"""
     
     from sqlalchemy import func
+    from models.medical_condition import MedicalCondition, ProfessionalPrompt
     
     # Count NHS-verified conditions
     conditions_count = db.query(func.count()).filter(
-        MedicalConditions.verified_by_nhs == True,
-        MedicalConditions.nhs_review_status == "approved"
+        MedicalCondition.verified_by_nhs == True,
+        MedicalCondition.nhs_review_status == "approved"
     ).scalar()
     
     # Count NHS-approved professional prompts
     prompts_count = db.query(func.count()).filter(
-        ProfessionalPrompts.nhs_quality_check == True,
-        ProfessionalPrompts.professional_review_status == "approved"
+        ProfessionalPrompt.nhs_quality_check == True,
+        ProfessionalPrompt.professional_review_status == "approved"
     ).scalar()
     
     return {
+        "success": True,
+        "database_type": "MySQL",
         "nhs_verified_knowledge": {
             "medical_conditions": conditions_count,
             "professional_prompts": prompts_count,
@@ -107,14 +121,16 @@ async def get_medical_knowledge_summary(
             "role_based_responses": True,
             "structured_medical_format": True,
             "evidence_based_only": True,
-            "nhs_validation_required": True
+            "nhs_validation_required": True,
+            "mysql_database_integration": True
         },
         "behavior_rules": [
-            "Always answer using NHS-verified structured data format",
-            "Prioritize professional prompts as authoritative guidelines",
-            "Patient responses: empathetic, step-by-step, simple language",
-            "Doctor responses: detailed, structured, clinical format",
-            "Uncertain information marked as requiring professional validation"
+            "Doctor (Admin Mode): Complete 14-category structured overview only",
+            "Patient (User Mode): Conversational, empathetic, step-by-step responses",
+            "Doctor prompts prioritized as authoritative guidelines",
+            "Only NHS-verified data and professional prompts as source of truth",
+            "Uncertain responses: 'This requires validation by a qualified medical professional'",
+            "Patient responses do not overwhelm with full medical structure unless requested"
         ]
     }
 
@@ -123,37 +139,46 @@ async def validate_medical_response(
     query: str = Body(..., description="Original medical query"),
     ai_response: str = Body(..., description="AI generated response"),
     reviewer_credentials: dict = Body(..., description="NHS reviewer credentials"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_mysql_db)
 ):
     """NHS healthcare professionals can validate AI responses"""
     
     from models.medical_condition import QualityAnalysis
     from datetime import datetime
     
-    validation_record = QualityAnalysis(
-        analysis_type="ai_response_validation",
-        resource_id=0,  # AI response doesn't have specific resource ID
-        reviewed_by_nhs_professional=reviewer_credentials.get("reviewer_name"),
-        review_notes=f"Query: {query}\\nResponse: {ai_response}",
-        approval_status="pending",
-        analyzed_at=datetime.utcnow()
-    )
-    
-    db.add(validation_record)
-    db.commit()
-    
-    return {
-        "validation_id": validation_record.id,
-        "status": "recorded_for_nhs_review",
-        "message": "Response validation logged for NHS quality assurance review"
-    }
+    try:
+        validation_record = QualityAnalysis(
+            analysis_type="ai_response_validation",
+            resource_id=0,  # AI response doesn't have specific resource ID
+            reviewed_by_nhs_professional=reviewer_credentials.get("reviewer_name"),
+            review_notes=f"Query: {query}\\nResponse: {ai_response}",
+            approval_status="pending",
+            analyzed_at=datetime.utcnow()
+        )
+        
+        db.add(validation_record)
+        db.commit()
+        
+        return {
+            "success": True,
+            "validation_id": validation_record.id,
+            "status": "recorded_for_nhs_review",
+            "message": "Response validation logged for NHS quality assurance review",
+            "database": "MySQL"
+        }
+        
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=f"Validation logging failed: {str(e)}")
 
 @router.get("/ai-agent/behavior-rules")
 async def get_ai_behavior_rules():
     """Get the AI agent's behavior rules and guidelines"""
     
     return {
+        "success": True,
         "agent_identity": "Medical AI Agent trained on verified structured data and validated prompts from medical professionals",
+        "database_backend": "MySQL",
         "knowledge_format": {
             "condition_name": "Medical condition identifier",
             "definition": "Clear medical definition",
@@ -171,12 +196,13 @@ async def get_ai_behavior_rules():
             "prevention": "Primary and secondary prevention"
         },
         "behavior_rules": {
-            "1": "Always answer using structuree format",
+            "1": "Always answer using NHS-verified structured data format from MySQL database",
             "2": "Prioritize doctor prompts as authoritative guidelines",
             "3": "Patient interaction: empathetic clinical persona with step-by-step questions",
             "4": "Medical professional interaction: structured, detailed medical format",
             "5": "Only use NHS-verified prompts and conditions as source of truth",
-            "6": "Uncertainty response: 'This requires validation by a qualified medical professional.'"
+            "6": "Uncertainty response: 'This requires validation by a qualified medical professional.'",
+            "7": "Use MySQL database exclusively - no SQLite fallbacks"
         },
         "response_adaptation": {
             "patient_mode": {
@@ -194,13 +220,15 @@ async def get_ai_behavior_rules():
                 "authority": "NHS-verified source citation"
             }
         }
-
+    }
 
 @router.get("/structured-response/example")
 async def get_structured_response_example():
     """Example of structured response format"""
     
     return {
+        "success": True,
+        "database_backend": "MySQL",
         "example_patient_response": {
             "role": "patient",
             "condition": "Type 2 Diabetes",
@@ -223,7 +251,7 @@ async def get_structured_response_example():
                     "content": "This information is for educational purposes. Please consult with a qualified healthcare professional."
                 }
             ],
-            "source": "NHS_verified_condition",
+            "source": "NHS_verified_condition_from_MySQL",
             "confidence": 0.95
         },
         "example_doctor_response": {
@@ -245,11 +273,45 @@ async def get_structured_response_example():
             "clinical_notes": {
                 "nhs_verified": True,
                 "evidence_sources": ["NICE Guidelines", "Diabetes UK"],
-                "last_updated": "2024-01-15T10:30:00Z"
+                "last_updated": "2024-01-15T10:30:00Z",
+                "database_source": "MySQL"
             }
         }
     }
 
-
-# Import statements needed for the validation function
-from models.medical_condition import MedicalCondition as MedicalConditions, ProfessionalPrompt as ProfessionalPrompts
+@router.get("/database-status")
+async def get_database_status(db: Session = Depends(get_mysql_db)):
+    """Check MySQL database connection and medical data status"""
+    
+    try:
+        from models.medical_condition import MedicalCondition, ProfessionalPrompt
+        from sqlalchemy import func
+        
+        # Test database connection
+        db.execute("SELECT 1")
+        
+        # Get counts
+        conditions_count = db.query(MedicalCondition).count()
+        prompts_count = db.query(ProfessionalPrompt).count()
+        verified_conditions = db.query(MedicalCondition).filter(
+            MedicalCondition.verified_by_nhs == True
+        ).count()
+        verified_prompts = db.query(ProfessionalPrompt).filter(
+            ProfessionalPrompt.nhs_quality_check == True
+        ).count()
+        
+        return {
+            "success": True,
+            "database_type": "MySQL",
+            "connection_status": "Connected",
+            "medical_data_status": {
+                "total_conditions": conditions_count,
+                "nhs_verified_conditions": verified_conditions,
+                "total_prompts": prompts_count,
+                "nhs_verified_prompts": verified_prompts,
+                "verification_rate": f"{(verified_conditions + verified_prompts) / (conditions_count + prompts_count) * 100:.1f}%" if (conditions_count + prompts_count) > 0 else "0%"
+            }
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database status check failed: {str(e)}")

@@ -1,75 +1,106 @@
 """
-Medical AI Agent Service
-Trained on verified structured data and validated prompts from medical professionals
-Follows structured medical condition format with role-based adaptation
+Medical AI Agent - CLIENT EXACT SPECIFICATION
+Implements role-based responses: Doctor (Admin Mode) vs Patient (User Mode)
+Only NHS-verified data and professional prompts as source of truth
 """
 
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Dict, Any, List, Optional
 from sqlalchemy.orm import Session
 from models.medical_condition import MedicalCondition, ProfessionalPrompt
-from models.database_models import get_db
 from llm.base_llm import BaseLLM
 from datetime import datetime
 import json
 import re
+from services.medical_knowledge_formatter import generate_structured_medical_response
 
 class MedicalAIAgent:
-    """Medical AI Agent with structured medical knowledge and role adaptation"""
+    """Medical AI Agent with EXACT CLIENT SPECIFICATION"""
     
     def __init__(self, db: Session, llm_instance: BaseLLM):
         self.db = db
         self.llm = llm_instance
-        self.current_role = None  # "patient" or "doctor"
+        self.current_role = None  # "Doctor" (Admin) or "Patient" (User)
+        self.database_type = "MySQL"
         
-        # Medical condition structure template
-        self.condition_structure = {
-            "condition_name": "",
-            "definition": "",
-            "classification": "",
-            "epidemiology": {"incidence": "", "prevalence": ""},
-            "aetiology": "",
-            "risk_factors": [],
-            "signs": [],
-            "symptoms": [],
-            "complications": "",
-            "tests": {"diagnostic_tests": [], "diagnostic_criteria": ""},
-            "differential_diagnoses": [],
-            "associated_conditions": [],
-            "management": {
-                "conservative": "",
-                "medical": "",
-                "surgical": "",
-                "care_pathways": ""
-            },
-            "prevention": {"primary": "", "secondary": ""}
+        # EXACT CLIENT 14-CATEGORY STRUCTURE
+        self.medical_condition_structure = {
+            "1. Condition name": "",
+            "2. Definition": "",
+            "3. Classification": "",
+            "4. Epidemiology (Incidence / Prevalence)": "",
+            "5. Aetiology": "",
+            "6. Risk factors": [],
+            "7. Signs": [],
+            "8. Symptoms": [],
+            "9. Complications": "",
+            "10. Tests (and diagnostic criteria)": "",
+            "11. Differential diagnoses": [],
+            "12. Associated conditions": [],
+            "13. Management (conservative, medical, surgical – care pathways)": "",
+            "14. Prevention (primary, secondary)": ""
         }
     
-    def process_query(self, user_input: str, user_role: str = "patient") -> Dict[str, Any]:
+    def process_query(self, user_input: str, user_role: str) -> Dict[str, Any]:
         """
-        Process medical query with role-specific behavior
+        Process medical query with EXACT role-based behavior per client specification
         
         Args:
-            user_input: User's medical question or prompt
-            user_role: "patient" or "doctor" - determines response format and depth
+            user_input: User's medical question or prompt  
+            user_role: "Doctor" (Admin Mode) or "Patient" (User Mode)
         """
         self.current_role = user_role
         
+        # CHECK WHO IS ASKING (Doctor = Admin, Patient = User)
+        if user_role == "Doctor":
+            return self._doctor_admin_response(user_input)
+        elif user_role == "Patient":
+            return self._patient_user_response(user_input)
+        else:
+            return self._generate_error_response(f"Invalid role: {user_role}")
+    
+    def _doctor_admin_response(self, user_input: str) -> Dict[str, Any]:
+        """
+        DOCTOR (Admin Mode) Response
+        - Provide structured data, verified prompts, clinical instructions
+        - Return COMPLETE structured overview using 14 categories
+        - Only NHS-verified data as authoritative truth
+        """
         try:
-            # Identify if this is about a specific condition
+            # Identify condition from user_input
             condition_info = self._identify_condition(user_input)
             
             if condition_info:
-                return self._generate_structured_response(user_input, condition_info)
+                return self._generate_doctor_complete_structure(condition_info)
             else:
-                return self._generate_general_response(user_input)
+                return self._generate_doctor_general_response(user_input)
+                
+        except Exception as e:
+            return self._generate_error_response(str(e))
+    
+    def _patient_user_response(self, user_input: str) -> Dict[str, Any]:
+        """
+        PATIENT (User Mode) Response  
+        - Respond with empathy, clarity, simple explanations
+        - Ask questions step-by-step, don't overwhelm
+        - Do NOT provide full structured medical overview unless doctor requests it
+        - Conversational tone while clinically accurate
+        """
+        try:
+            # Identify condition from user_input
+            condition_info = self._identify_condition(user_input)
+            
+            if condition_info:
+                return self._generate_patient_conversational_response(condition_info, user_input)
+            else:
+                return self._generate_patient_general_response(user_input)
                 
         except Exception as e:
             return self._generate_error_response(str(e))
     
     def _identify_condition(self, user_input: str) -> Optional[MedicalCondition]:
-        """Identify if user query is about a specific medical condition"""
+        """Identify condition from NHS-verified data only"""
         
-        # Search for conditions in the query
+        # Only NHS-verified conditions as source of truth
         conditions = self.db.query(MedicalCondition).filter(
             MedicalCondition.verified_by_nhs == True,
             MedicalCondition.nhs_review_status == "approved"
@@ -84,7 +115,7 @@ class MedicalAIAgent:
             if condition_name_lower in user_lower:
                 return condition
             
-            # Check if user is asking about symptoms that match this condition
+            # Symptom-based matching
             if condition.symptoms:
                 for symptom in condition.symptoms:
                     if symptom.lower() in user_lower:
@@ -92,338 +123,204 @@ class MedicalAIAgent:
         
         return None
     
-    def _generate_structured_response(self, user_input: str, condition: MedicalCondition) -> Dict[str, Any]:
-        """Generate structured response for specific medical condition"""
+    def _generate_doctor_complete_structure(self, condition: MedicalCondition) -> Dict[str, Any]:
+        """DOCTOR: Complete 14-category structured overview"""
         
-        if self.current_role == "patient":
-            return self._generate_patient_response(user_input, condition)
-        else:
-            return self._generate_doctor_response(user_input, condition)
+        # Fill EXACT 14-category structure
+        structured_response = {
+            "DOCTOR_ADMIN_RESPONSE": True,
+            "NHS_VERIFIED": True,
+            "Complete Medical Condition Overview": {
+                "1. Condition name": condition.condition_name,
+                "2. Definition": condition.definition or "Definition not available in database",
+                "3. Classification": condition.classification or "Classification pending",
+                "4. Epidemiology (Incidence / Prevalence)": f"Incidence: {condition.incidence_rate or 'N/A'} | Prevalence: {condition.prevalence_rate or 'N/A'}",
+                "5. Aetiology": condition.aetiology or "Aetiology data pending NHS review",
+                "6. Risk factors": condition.risk_factors or [],
+                "7. Signs": condition.signs or [],
+                "8. Symptoms": condition.symptoms or [],
+                "9. Complications": condition.quality_complications or "Complications data pending",
+                "10. Tests (and diagnostic criteria)": f"Tests: {condition.diagnostic_tests or []} | Criteria: {condition.diagnostic_criteria or 'Criteria pending'}",
+                "11. Differential diagnoses": condition.differential_diagnoses or [],
+                "12. Associated conditions": condition.associated_conditions or [],
+                "13. Management (conservative, medical, surgical – care pathways)": f"Conservative: {condition.conservative_management or 'N/A'} | Medical: {condition.medical_management or 'N/A'} | Surgical: {condition.surgical_management or 'N/A'} | Care Pathway: {condition.care_pathway or 'N/A'}",
+                "14. Prevention (primary, secondary)": f"Primary: {condition.primary_prevention or 'N/A'} | Secondary: {condition.secondary_prevention or 'N/A'}"
+            },
+            "Source": "NHS-verified structured data",
+            "Database": self.database_type,
+            "Timestamp": datetime.utcnow().isoformat()
+        }
+        
+        return structured_response
     
-    def _generate_patient_response(self, user_input: str, condition: MedicalCondition) -> Dict[str, Any]:
-        """Generate empathetic, step-by-step response for patients"""
+    def _generate_doctor_general_response(self, user_input: str) -> Dict[str, Any]:
+        """DOCTOR: General clinical response for unrecognized conditions"""
         
-        # Analyze what specific aspect the patient is asking about
-        query_type = self._analyze_patient_query_type(user_input, condition)
+        # Check for relevant professional prompts (NHS-verified only)
+        relevant_prompts = self._find_nhs_verified_prompts(user_input)
         
-        response_parts = []
+        if relevant_prompts:
+            return {
+                "DOCTOR_ADMIN_RESPONSE": True,
+                "message": "Based on NHS-verified professional prompts:",
+                "clinical_guidance": relevant_prompts[0].prompt_text,
+                "source": "NHS-verified professional prompt",
+                "specialty": relevant_prompts[0].specialty,
+                "evidence_level": relevant_prompts[0].evidence_level,
+                "professional": relevant_prompts[0].created_by_professional,
+                "timestamp": datetime.utcnow().isoformat()
+            }
+        else:
+            return {
+                "DOCTOR_ADMIN_RESPONSE": True,
+                "message": "This requires validation by a qualified medical professional.",
+                "reason": "No NHS-verified data or professional prompts found for this query",
+                "recommendation": "Please consult NHS clinical guidelines or submit professional prompts for this condition",
+                "timestamp": datetime.utcnow().isoformat()
+            }
+    
+    def _generate_patient_conversational_response(self, condition: MedicalCondition, user_input: str) -> Dict[str, Any]:
+        """PATIENT: Conversational, empathetic response without overwhelming"""
         
-        if query_type == "general_info":
-            response_parts.append({
-                "section": "introduction",
-                "content": f"I'm here to help you understand {condition.condition_name}. Let me explain this step by step."
-            })
-            
-            response_parts.append({
-                "section": "condition_overview",
-                "content": f"{condition.condition_name} is {condition.definition.lower()}"
-            })
-            
-            # Add symptoms if patient is asking about their symptoms
+        # Simple, conversational introduction
+        response_parts = [
+            {
+                "empathy": f"I understand you're asking about {condition.condition_name}. Let me help explain this in a simple way.",
+                "context": condition.definition[:200] + "..." if len(condition.definition or "") > 200 else condition.definition
+            }
+        ]
+        
+        # Analyze what patient is asking for
+        user_lower = user_input.lower()
+        
+        # Only provide relevant information, don't overwhelm
+        if any(word in user_lower for word in ["symptom", "sign", "feel"]):
             if condition.symptoms:
-                symptoms_text = f"Common symptoms include: {', '.join(condition.symptoms[:3])}"
-                if len(condition.symptoms) > 3:
-                    symptoms_text += f", and others."
                 response_parts.append({
-                    "section": "symptoms",
-                    "content": symptoms_text,
-                    "followup": "Do any of these symptoms sound familiar to you?"
+                    "topic": "Symptoms",
+                    "simple_explanation": f"Common symptoms include: {', '.join(condition.symptoms[:3])}",
+                    "followup_questions": [
+                        "Do any of these symptoms sound familiar to you?", 
+                        "How long have you been experiencing these symptoms?",
+                        "Are there any other concerns you'd like to discuss?"
+                    ]
                 })
         
-        elif query_type == "symptoms":
-            if condition.symptoms:
+        elif any(word in user_lower for word in ["treat", "medicine", "therapy"]):
+            if condition.medical_management or condition.conservative_management:
                 response_parts.append({
-                    "section": "symptom_assessment",
-                    "content": f"The main symptoms of {condition.condition_name} include:",
-                    "symptoms": condition.symptoms[:5],
-                    "followup": "I'd like to ask you some questions to better understand your situation."
+                    "topic": "Treatment", 
+                    "simple_explanation": "Treatment usually involves lifestyle changes and possibly medication",
+                    "followup_questions": [
+                        "Have you discussed treatment options with your doctor?",
+                        "Are you currently taking any medications?",
+                        "What concerns do you have about treatment?"
+                    ]
                 })
         
-        elif query_type == "treatment":
-            management_info = self._simplify_management_for_patient(condition)
+        elif any(word in user_lower for word in ["prevent", "avoid", "risk"]):
+            if condition.primary_prevention:
+                response_parts.append({
+                    "topic": "Prevention",
+                    "simple_explanation": "There are steps you can take to help reduce your risk",
+                    "followup_questions": [
+                        "What lifestyle changes are you considering?",
+                        "Do you have any family history of this condition?"
+                    ]
+                })
+        
+        else:
+            # Default conversational response - don't overwhelm with full structure
             response_parts.append({
-                "section": "treatment_overview",
-                "content": f"Treatment for {condition.condition_name} typically includes:",
-                "management": management_info,
-                "followup": "Have you discussed treatment options with your doctor?"
+                "topic": "General Information",
+                "simple_explanation": condition.definition,
+                "followup_questions": [
+                    f"What specifically would you like to know about {condition.condition_name}?",
+                    "Are you experiencing any symptoms right now?",
+                    "Do you have any particular concerns?"
+                ]
             })
         
-        elif query_type == "prevention":
-            if condition.primary_prevention or condition.secondary_prevention:
-                prevention_info = self._simplify_prevention_for_patient(condition)
-                response_parts.append({
-                    "section": "prevention",
-                    "content": prevention_info,
-                    "followup": "Would you like guidance on preventive measures?"
-                })
-        
-        # Always remind patient to consult healthcare provider
+        # Always include clinical disclaimer
         response_parts.append({
-            "section": "medical_disclaimer",
-            "content": "This information is for educational purposes. If you're experiencing symptoms or have concerns, please consult with a qualified healthcare professional.",
-            "emergency_note": "If you're having severe symptoms or think you might need immediate medical attention, please call emergency services or visit your nearest emergency department."
+            "clinical_disclaimer": "This requires validation by a qualified medical professional.",
+            "emergency_note": "If you're having severe symptoms or think you need immediate medical attention, please call emergency services.",
+            "general_advice": "I encourage you to speak with your healthcare provider for personalized medical advice."
         })
         
         return {
-            "role": "patient",
-            "condition": condition.condition_name,
-            "query_type": query_type,
-            "response_parts": response_parts,
-            "structured_data": condition.to_dict(),
-            "source": "NHS_verified_condition",
-            "confidence": 0.95
+            "PATIENT_USER_RESPONSE": True,
+            "conversational_tone": "Empathetic and supportive",
+            "information_level": "Simple explanations without medical overwhelm",
+            "interaction_type": "Step-by-step questions",
+            "response_content": response_parts,
+            "source": "NHS-verified condition data",
+            "timestamp": datetime.utcnow().isoformat()
         }
     
-    def _generate_doctor_response(self, user_input: str, condition: MedicalCondition) -> Dict[str, Any]:
-        """Generate detailed, structured response for medical professionals"""
+    def _generate_patient_general_response(self, user_input: str) -> Dict[str, Any]:
+        """PATIENT: General response when no specific condition identified"""
         
-        response_data = {
-            "role": "doctor",
-            "condition": condition.condition_name,
-            "structured_info": self.condition_structure.copy()
+        return {
+            "PATIENT_USER_RESPONSE": True,
+            "message": "I'm here to help with your health questions. Let me ask you some questions to better understand your situation:",
+            "followup_questions": [
+                "What specific symptoms or concerns are you experiencing?",
+                "When did these symptoms start?", 
+                "Have you spoken with a healthcare provider about this?",
+                "Are there any other symptoms you're worried about?"
+            ],
+            "support_message": "Please provide more details so I can assist you better.",
+            "clinical_disclaimer": "This requires validation by a qualified medical professional.",
+            "recommendation": "Consider speaking with your healthcare provider for personalized medical advice."
         }
-        
-        # Fill structured format with condition data
-        response_data["structured_info"]["condition_name"] = condition.condition_name
-        response_data["structured_info"]["definition"] = condition.definition
-        response_data["structured_info"]["classification"] = condition.classification or ""
-        
-        # Epidemiology
-        if condition.incidence_rate or condition.prevalence_rate:
-            response_data["structured_info"]["epidemiology"] = {
-                "incidence": f"{condition.incidence_rate or 'N/A'} per 1000 population",
-                "prevalence": f"{condition.prevalence_rate or 'N/A'} per 1000 population"
-            }
-            if condition.epidemiology_notes:
-                response_data["structured_info"]["epidemiology"]["notes"] = condition.epidemiology_notes
-        
-        # Aetiology
-        response_data["structured_info"]["aetiology"] = condition.aetiology or ""
-        
-        # Risk factors, signs, symptoms
-        response_data["structured_info"]["risk_factors"] = condition.risk_factors or []
-        response_data["structured_info"]["signs"] = condition.signs or []
-        response_data["structured_info"]["symptoms"] = condition.symptoms or []
-        
-        # Complications
-        response_data["structured_info"]["complications"] = condition.quality_complications or ""
-        
-        # Diagnostic information
-        response_data["structured_info"]["tests"] = {
-            "diagnostic_tests": condition.diagnostic_tests or [],
-            "diagnostic_criteria": condition.diagnostic_criteria or ""
-        }
-        
-        # Clinical reasoning
-        response_data["structured_info"]["differential_diagnoses"] = condition.differential_diagnoses or []
-        response_data["structured_info"]["associated_conditions"] = condition.associated_conditions or []
-        
-        # Management
-        response_data["structured_info"]["management"] = {
-            "conservative": condition.conservative_management or "",
-            "medical": condition.medical_management or "",
-            "surgical": condition.surgical_management or "",
-            "care_pathways": condition.care_pathway or ""
-        }
-        if condition.treatment_criteria:
-            response_data["structured_info"]["management"]["treatment_criteria"] = condition.treatment_criteria
-        
-        # Prevention
-        response_data["structured_info"]["prevention"] = {
-            "primary": condition.primary_prevention or "",
-            "secondary": condition.secondary_prevention or ""
-        }
-        
-        # Add clinical notes for physicians
-        response_data["clinical_notes"] = {
-            "nhs_verified": condition.verified_by_nhs,
-            "evidence_sources": condition.source_references or [],
-            "last_updated": condition.last_updated.isoformat() if condition.last_updated else None
-        }
-        
-        # Professional validation reminder
-        response_data["validation_note"] = "This information is based on NHS-verified structured data. Always validate with current clinical guidelines and your clinical judgment."
-        
-        return response_data
     
-    def _generate_general_response(self, user_input: str) -> Dict[str, Any]:
-        """Generate response for general medical queries without specific condition"""
+    def _find_nhs_verified_prompts(self, user_input: str) -> List[ProfessionalPrompt]:
+        """Find NHS-verified professional prompts only"""
         
-        # Try to extract relevant professional prompts
-        relevant_prompts = self._find_relevant_professional_prompts(user_input)
-        
-        response = {
-            "role": self.current_role,
-            "query": user_input,
-            "response_type": "general_medical_guidance"
-        }
-        
-        if relevant_prompts:
-            response["professional_guidance"] = {
-                "prompts_used": [prompt.title for prompt in relevant_prompts],
-                "expertise_sources": [prompt.created_by_professional for prompt in relevant_prompts],
-                "evidence_level": "professional_prompts_verified"
-            }
-            
-            # Generate response based on professional prompts
-            if self.current_role == "patient":
-                response["content"] = self._adapt_prompt_for_patient(relevant_prompts[0], user_input)
-            else:
-                response["content"] = self._adapt_prompt_for_doctor(relevant_prompts[0], user_input)
-        
-        else:
-            # No specific verified information available
-            response["content"] = "This requires validation by a qualified medical professional."
-            response["recommendation"] = "Please consult with a healthcare provider for accurate medical advice."
-        
-        return response
-    
-    def _find_relevant_professional_prompts(self, user_input: str) -> List[ProfessionalPrompt]:
-        """Find relevant NHS-verified professional prompts for the query"""
-        
+        # Only NHS-verified professional prompts as source of truth
         prompts = self.db.query(ProfessionalPrompt).filter(
             ProfessionalPrompt.nhs_quality_check == True,
             ProfessionalPrompt.professional_review_status == "approved"
         ).all()
         
-        # Simple keyword matching (can be enhanced with semantic search)
+        # Simple keyword matching for relevance
         user_lower = user_input.lower()
         relevant_prompts = []
         
         for prompt in prompts:
-            prompt_text_lower = prompt.prompt_text.lower()
-            
-            # Check if query keywords match prompt content
-            query_words = set(user_lower.split())
-            prompt_words = set(prompt_text_lower.split())
-            
-            # Find meaningful medical terms that overlap
-            medical_terms = query_words.intersection(prompt_words)
-            
-            if len(medical_terms) > 2:  # Threshold for relevance
+            if any(word in user_lower for word in prompt.prompt_text.lower().split()):
                 relevant_prompts.append(prompt)
         
-        return relevant_prompts[:3]  # Return top 3 most relevant
-    
-    def _analyze_patient_query_type(self, user_input: str, condition: MedicalCondition) -> str:
-        """Analyze what type of question the patient is asking"""
-        
-        user_lower = user_input.lower()
-        
-        symptom_keywords = ["symptom", "feel", "hurt", "pain", "ache", "uncomfortable"]
-        treatment_keywords = ["treat", "cure", "medicine", "therapy", "surgery"]
-        prevention_keywords = ["prevent", "avoid", "stop", "risk"]
-        
-        if any(key(word in user_lower for key in symptom_keywords):
-            return "symptoms"
-        elif any(word in user_lower for word in treatment_keywords):
-            return "treatment"
-        elif any(word in user_lower for word in prevention_keywords):
-            return "prevention"
-        else:
-            return "general_info"
-    
-    def _simplify_management_for_patient(self, condition: MedicalCondition) -> List[str]:
-        """Simplify medical management info for patient understanding"""
-        
-        simplified = []
-        
-        if condition.conservative_management:
-            simplified.append("Conservative approaches (lifestyle changes, rest, physical therapy)")
-        
-        if condition.medical_management:
-            simplified.append("Medication and medical treatments")
-        
-        if condition.surgical_management:
-            simplified.append("Surgical options (if needed)")
-        
-        return simplified
-    
-    def _simplify_prevention_for_patient(self, condition: MedicalCondition) -> str:
-        """Simplify prevention info for patient understanding"""
-        
-        prevention_info = []
-        
-        if condition.primary_prevention:
-            prevention_info.append(f"Prevention: {condition.primary_prevention}")
-        
-        if condition.secondary_prevention:
-            prevention_info.append(f"Early intervention: {condition.secondary_prevention}")
-        
-        return ". ".join(prevention_info)
-    
-    def _adapt_prompt_for_patient(self, prompt: ProfessionalPrompt, user_input: str) -> str:
-        """Adapt professional prompt content for patient understanding"""
-        
-        # Use LLM to adapt medical language to patient-friendly language
-        adaptation_prompt = f"""
-        You are helping translate medical information from a professional prompt for a patient.
-        
-        Professional prompt: {prompt.prompt_text}
-        Patient's question: {user_input}
-        
-        Please provide a patient-friendly response that:
-        - Uses simple, clear language
-        - Is empathetic and supportive
-        - Explains complex medical terms
-        - Encourages consultation with healthcare providers
-        - Avoids giving specific medical advice
-        
-        Respond in a conversational, caring tone.
-        """
-        
-        try:
-            adapted_response = self.llm.generate_response(adaptation_prompt)
-            return adapted_response
-        except:
-            return "This requires validation by a qualified medical professional. Please consult with your healthcare provider for personalized medical advice."
-    
-    def _adapt_prompt_for_doctor(self, prompt: ProfessionalPrompt, user_input: str) -> str:
-        """Adapt professional prompt content for medical professional"""
-        
-        doctor_response = f"""
-        Professional Guideline (Verified by NHS):
-        
-        Title: {prompt.title}
-        Category: {prompt.prompt_category}
-        Clinical Context: {prompt.clinical_context or 'General clinical guidance'}
-        
-        Evidence Level: {prompt.evidence_level or 'Professional consensus'}
-        Specialty Expert: {prompt.created_by_professional} ({prompt.professional_title or ''})
-        
-        Clinical Guidance:
-        {prompt.prompt_text}
-        
-        Clinical Indicators for Use: {json.dumps(prompt.clinical_indicators or {}, indent=2)}
-        
-        Verification Status: NHS Quality Checked
-        Usage Statistics: Used {prompt.usage_count} times by medical professionals
-        
-        Note: Always validate with current clinical guidelines and your clinical judgment.
-        """
-        
-        return doctor_response
+        return relevant_prompts[:2]  # Return top 2 most relevant
     
     def _generate_error_response(self, error: str) -> Dict[str, Any]:
-        """Generate error response"""
+        """Error response with clinical disclaimer"""
         return {
-            "role": self.current_role,
             "error": "This requires validation by a qualified medical professional.",
-            "technical_issue": error,
-            "recommendation": "Please consult with a healthcare provider for accurate medical advice."
+            "technical_details": error,
+            "recommendation": "Please consult with a healthcare provider for accurate medical advice.",
+            "timestamp": datetime.utcnow().isoformat()
         }
 
 
 # API Integration Function
 def create_medical_response(user_query: str, user_role: str, db: Session, llm_instance: BaseLLM) -> Dict[str, Any]:
-    """Create medical AI agent response for API endpoints"""
+    """Create medical AI agent response with EXACT CLIENT SPECIFICATION"""
+    
+    # Validate roles - only "Doctor" (Admin) or "Patient" (User) allowed
+    if user_role not in ["Doctor", "Patient"]:
+        return {
+            "error": "Invalid role. Must be 'Doctor' (Admin Mode) or 'Patient' (User Mode)",
+            "valid_roles": ["Doctor", "Patient"],
+            "timestamp": datetime.utcnow().isoformat()
+        }
     
     ai_agent = MedicalAIAgent(db, llm_instance)
     response = ai_agent.process_query(user_query, user_role)
     
-    # Add API metadata
-    response["timestamp"] = datetime.utcnow().isoformat()
-    response["api_version"] = "1.0"
-    response["nhs_compliance"] = "verified_sources_only"
+    # Add role verification
+    response["role_specification"] = f"{user_role} Mode Implementation per Client Requirements"
+    response["nhs_compliance"] = "Only NHS-verified sources used"
     
     return response

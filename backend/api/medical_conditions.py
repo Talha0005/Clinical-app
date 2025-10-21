@@ -1,328 +1,388 @@
 """
 Medical Conditions API
 Handles CRUD operations for medical conditions and professional prompts management
+Uses MySQL database with NHS verification workflows
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Body
 from sqlalchemy.orm import Session
-from models.database_models import get_db
+from config.database import SessionLocal
 from models.medical_condition import MedicalCondition, ProfessionalPrompt, QualityAnalysis
-from services.auth import get_current_admin_user
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel
 from datetime import datetime
 import json
 
-router = APIRouter()
+router = APIRouter(
+    prefix="/api/medical-conditions",
+    tags=["medical-conditions"]
+)
 
-# Pydantic models for API requests/responses
-class MedicalConditionCreate(BaseModel):
+# Dependency to get MySQL database session
+def get_mysql_db():
+    """Get MySQL database session"""
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+# Request/Response Models
+class MedicalConditionRequest(BaseModel):
     condition_name: str
-    definition: str
+    definition: Optional[str] = None
     classification: Optional[str] = None
-    incidence_rate: Optional[float] = None
-    prevalence_rate: Optional[float] = None
+    incidence_rate: Optional[str] = None
+    prevalence_rate: Optional[str] = None
     epidemiology_notes: Optional[str] = None
     aetiology: Optional[str] = None
     risk_factors: Optional[List[str]] = None
     signs: Optional[List[str]] = None
     symptoms: Optional[List[str]] = None
-    complications: Optional[str] = None
-    diagnostic_tests: Optional[List[Dict[str, Any]]] = None
+    quality_complications: Optional[str] = None
+    diagnostic_tests: Optional[List[str]] = None
     diagnostic_criteria: Optional[str] = None
     differential_diagnoses: Optional[List[str]] = None
     associated_conditions: Optional[List[str]] = None
-    conservative_management: Optional[Dict[str, Any]] = None
-    medical_management: Optional[Dict[str, Any]] = None
-    surgical_management: Optional[Dict[str, Any]] = None
+    conservative_management: Optional[str] = None
+    medical_management: Optional[str] = None
+    surgical_management: Optional[str] = None
     care_pathway: Optional[str] = None
     treatment_criteria: Optional[str] = None
     primary_prevention: Optional[str] = None
     secondary_prevention: Optional[str] = None
-    source_references: Optional[List[str]] = None
 
-class ProfessionalPromptCreate(BaseModel):
+class ProfessionalPromptRequest(BaseModel):
     title: str
     prompt_text: str
     prompt_category: str
     clinical_context: Optional[str] = None
-    specialty: Optional[str] = None
-    difficulty_level: str = "intermediate"
-    evidence_level: Optional[str] = None
     clinical_indicators: Optional[Dict[str, Any]] = None
+    evidence_level: Optional[str] = None
+    specialty: Optional[str] = None
+    created_by_professional: str
     professional_title: Optional[str] = None
-    specialty_expertise: Optional[str] = None
-    years_experience: Optional[int] = None
-    tags: Optional[List[str]] = None
+    professional_credentials: Optional[str] = None
+    usage_count: int = 0
 
-@router.get("/medical-conditions/", response_model=List[Dict[str, Any]])
-async def get_all_conditions(
+# --- Medical Condition Endpoints ---
+
+@router.post("/conditions/", response_model=Dict[str, Any], status_code=201)
+async def create_medical_condition(
+    condition_data: MedicalConditionRequest,
+    db: Session = Depends(get_mysql_db)
+):
+    """Create a new medical condition with structured data"""
+    
+    try:
+        # Convert to dict and create condition
+        condition_dict = condition_data.dict()
+        new_condition = MedicalCondition(**condition_dict)
+        
+        db.add(new_condition)
+        db.commit()
+        db.refresh(new_condition)
+        
+        return {
+            "success": True,
+            "message": "Medical condition created successfully",
+            "condition": new_condition.to_dict(),
+            "nhs_verification": "Pending NHS review"
+        }
+        
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=f"Failed to create medical condition: {str(e)}")
+
+@router.get("/conditions/", response_model=Dict[str, Any])
+async def get_all_medical_conditions(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
-    search: Optional[str] = Query(None),
-    specialty: Optional[str] = Query(None),
     verified_only: bool = Query(False),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_mysql_db)
 ):
-    """Get all medical conditions with filtering and pagination"""
-    query = db.query(MedicalCondition)
+    """Get all medical conditions with optional NHS verification filter"""
     
-    if search:
-        query = query.filter(MedicalCondition.condition_name.ilike(f"%{search}%"))
-    
-    if verified_only:
-        query = query.filter(MedicalCondition.verified_by_nhs == True)
-    
-    conditions = query.offset(skip).limit(limit).all()
-    return [condition.to_dict() for condition in conditions]
+    try:
+        query = db.query(MedicalCondition)
+        
+        if verified_only:
+            query = query.filter(
+                MedicalCondition.verified_by_nhs == True,
+                MedicalCondition.nhs_review_status == "approved"
+            )
+        
+        conditions = query.offset(skip).limit(limit).all()
+        
+        return {
+            "success": True,
+            "conditions": [condition.to_dict() for condition in conditions],
+            "total_count": db.query(MedicalCondition).count(),
+            "verified_count": db.query(MedicalCondition).filter(
+                MedicalCondition.verified_by_nhs == True
+            ).count()
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
-@router.get("/medical-conditions/{condition_id}", response_model=Dict[str, Any])
-async def get_condition_by_id(
+@router.get("/conditions/{condition_id}", response_model=Dict[str, Any])
+async def get_medical_condition(
     condition_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_mysql_db)
 ):
-    """Get specific medical condition by ID"""
+    """Get a specific medical condition with full structured data"""
+    
     condition = db.query(MedicalCondition).filter(MedicalCondition.id == condition_id).first()
     if not condition:
         raise HTTPException(status_code=404, detail="Medical condition not found")
-    return condition.to_dict()
+    
+    return {
+        "success": True,
+        "condition": condition.to_dict(),
+        "nhs_status": "verified" if condition.verified_by_nhs else "pending_review"
+    }
 
-@router.post("/medical-conditions/", response_model=Dict[str, Any])
-async def create_medical_condition(
-    condition_data: MedicalConditionCreate,
-    current_user = Depends(get_current_admin_user),
-    db: Session = Depends(get_db)
+@router.put("/conditions/{condition_id}", response_model=Dict[str, Any])
+async def update_medical_condition(
+    condition_id: int,
+    condition_data: MedicalConditionRequest,
+    db: Session = Depends(get_mysql_db)
 ):
-    """Create a new medical condition (Admin only)"""
-    # Check if condition already exists
-    existing = db.query(MedicalCondition).filter(
-        MedicalCondition.condition_name == condition_data.condition_name
-    ).first()
-    if existing:
-        raise HTTPException(status_code=400, detail="Medical condition already exists")
+    """Update medical condition - requires NHS re-verification"""
     
-    # Create new condition
-    db_condition = MedicalCondition(
-        condition_name=condition_data.condition_name,
-        definition=condition_data.definition,
-        classification=condition_data.classification,
-        incidence_rate=condition_data.incidence_rate,
-        prevalence_rate=condition_data.prevalence_rate,
-        epidemiology_notes=condition_data.epidemiology_notes,
-        aetiology=condition_data.aetiology,
-        risk_factors=condition_data.risk_factors if condition_data.risk_factors else [],
-        signs=condition_data.signs if condition_data.signs else [],
-        symptoms=condition_data.symptoms if condition_data.symptoms else [],
-        complications=condition_data.complications,
-        diagnostic_tests=condition_data.diagnostic_tests if condition_data.diagnostic_tests else [],
-        diagnostic_criteria=condition_data.diagnostic_criteria,
-        differential_diagnoses=condition_data.differential_diagnoses if condition_data.differential_diagnoses else [],
-        associated_conditions=condition_data.associated_conditions if condition_data.associated_conditions else [],
-        conservative_management=condition_data.conservative_management,
-        medical_management=condition_data.medical_management,
-        surgical_management=condition_data.surgical_management,
-        care_pathway=condition_data.care_pathway,
-        treatment_criteria=condition_data.treatment_criteria,
-        primary_prevention=condition_data.primary_prevention,
-        secondary_prevention=condition_data.secondary_prevention,
-        created_by=current_user.username,
-        source_references=condition_data.source_references if condition_data.source_references else []
-    )
+    condition = db.query(MedicalCondition).filter(MedicalCondition.id == condition_id).first()
+    if not condition:
+        raise HTTPException(status_code=404, detail="Medical condition not found")
     
-    db.add(db_condition)
-    db.commit()
-    db.refresh(db_condition)
-    
-    return db_condition.to_dict()
+    try:
+        # Update fields
+        update_data = condition_data.dict(exclude_unset=True)
+        for key, value in update_data.items():
+            setattr(condition, key, value)
+        
+        # Reset NHS verification status for updated condition
+        condition.nhs_verified = False
+        condition.nhs_review_status = "requires_review"
+        condition.last_updated = datetime.utcnow()
+        
+        db.commit()
+        db.refresh(condition)
+        
+        return {
+            "success": True,
+            "message": "Medical condition updated successfully",
+            "condition": condition.to_dict(),
+            "note": "NHS re-verification required due to updates"
+        }
+        
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=f"Failed to update medical condition: {str(e)}")
 
-@router.post("/professional-prompts/", response_model=Dict[str, Any])
+@router.delete("/conditions/{condition_id}")
+async def delete_medical_condition(
+    condition_id: int,
+    db: Session = Depends(get_mysql_db)
+):
+    """Delete medical condition"""
+    
+    condition = db.query(MedicalCondition).filter(MedicalCondition.id == condition_id).first()
+    if not condition:
+        raise HTTPException(status_code=404, detail="Medical condition not found")
+    
+    db.delete(condition)
+    db.commit()
+    
+    return {
+        "success": True,
+        "message": "Medical condition deleted successfully"
+    }
+
+# --- Professional Prompt Endpoints ---
+
+@router.post("/prompts/", response_model=Dict[str, Any], status_code=201)
 async def create_professional_prompt(
-    prompt_data: ProfessionalPromptCreate,
-    clinical_credentials: Dict[str, Any] = Body(..., description="Professional credentials"),
-    db: Session = Depends(get_db)
+    prompt_data: ProfessionalPromptRequest,
+    db: Session = Depends(get_mysql_db)
 ):
-    """Medical professionals can submit prompts for model training"""
+    """Create a new professional prompt for AI learning"""
     
-    # Create professional prompt
-    db_prompt = ProfessionalPrompt(
-        title=prompt_data.title,
-        prompt_text=prompt_data.prompt_text,
-        prompt_category=prompt_data.prompt_category,
-        clinical_context=prompt_data.clinical_context,
-        specialty=prompt_data.specialty,
-        difficulty_level=prompt_data.difficulty_level,
-        evidence_level=prompt_data.evidence_level,
-        clinical_indicators=prompt_data.clinical_indicators,
-        created_by_professional=clinical_credentials.get("professional_name"),
-        professional_title=clinical_credentials.get("professional_title"),
-        specialty_expertise=clinical_credentials.get("specialty_expertise"),
-        years_experience=clinical_credentials.get("years_experience"),
-        tags=prompt_data.tags if prompt_data.tags else []
-    )
-    
-    db.add(db_prompt)
-    db.commit()
-    db.refresh(db_prompt)
-    
-    return db_prompt.to_dict()
+    try:
+        prompt_dict = prompt_data.dict()
+        new_prompt = ProfessionalPrompt(**prompt_dict)
+        
+        db.add(new_prompt)
+        db.commit()
+        db.refresh(new_prompt)
+        
+        return {
+            "success": True,
+            "message": "Professional prompt created successfully",
+            "prompt": new_prompt.to_dict(),
+            "nhs_review": "Pending NHS quality assessment"
+        }
+        
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=f"Failed to create professional prompt: {str(e)}")
 
-@router.get("/professional-prompts/", response_model=List[Dict[str, Any]])
-async def get_professional_prompts(
+@router.get("/prompts/", response_model=Dict[str, Any])
+async def get_all_professional_prompts(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
     category: Optional[str] = Query(None),
     specialty: Optional[str] = Query(None),
-    approved_only: bool = Query(False),
-    db: Session = Depends(get_db)
+    nhs_verified_only: bool = Query(False),
+    db: Session = Depends(get_mysql_db)
 ):
-    """Get professional prompts for training data"""
-    query = db.query(ProfessionalPrompt)
+    """Get all professional prompts with filtering options"""
     
-    if category:
-        query = query.filter(ProfessionalPrompt.prompt_category == category)
-    
-    if specialty:
-        query = query.filter(ProfessionalPrompt.specialty == specialty)
-    
-    if approved_only:
-        query = query.filter(
-            ProfessionalPrompt.professional_review_status == "approved",
-            ProfessionalPrompt.nhs_quality_check == True
-        )
-    
-    prompts = query.offset(skip).limit(limit).all()
-    return [prompt.to_dict() for prompt in prompts]
-
-@router.post("/quality-analysis/")
-async def perform_quality_analysis(
-    resource_type: str,  # "condition" or "prompt"
-    resource_id: int,
-    reviewer_credentials: Dict[str, Any] = Body(..., description="NHS reviewer credentials"),
-    quality_metrics: Dict[str, Any] = Body(..., description="Quality assessment metrics"),
-    current_admin = Depends(get_current_admin_user),
-    db: Session = Depends(get_db)
-):
-    """Perform NHS quality analysis on conditions or prompts"""
-    
-    # Create quality analysis record
-    quality_analysis = QualityAnalysis(
-        analysis_type=resource_type,
-        resource_id=resource_id,
-        clinical_accuracy_score=quality_metrics.get("clinical_accuracy_score"),
-        evidence_strength=quality_metrics.get("evidence_strength"),
-        comprehensiveness_score=quality_metrics.get("comprehensiveness_score"),
-        reviewed_by_nhs_professional=reviewer_credentials.get("reviewer_name"),
-        review_notes=quality_metrics.get("review_notes"),
-        red_flags=quality_metrics.get("red_flags", []),
-        improvement_suggestions=quality_metrics.get("improvement_suggestions", [])
-    )
-    
-    # Update the source resource approval status
-    if resource_type == "condition":
-        condition = db.query(MedicalCondition).filter(MedicalCondition.id == resource_id).first()
-        if condition:
-            condition.nhs_review_status = quality_metrics.get("approval_status", "pending")
-            condition.verified_by_nhs = quality_metrics.get("approval_status") == "approved"
-    
-    elif resource_type == "prompt":
-        prompt = db.query(ProfessionalPrompt).filter(ProfessionalPrompt.id == resource_id).first()
-        if prompt:
-            prompt.nhs_quality_check = quality_metrics.get("approval_status") == "approved"
-            prompt.professional_review_status = quality_metrics.get("approval_status", "pending")
-    
-    db.add(quality_analysis)
-    db.commit()
-    db.refresh(quality_analysis)
-    
-    return {
-        "message": "Quality analysis completed",
-        "analysis_id": quality_analysis.id,
-        "approval_status": quality_metrics.get("approval_status")
-    }
-
-@router.get("/training-data/")
-async def get_training_data(
-    data_type: str = Query("all", description="Type of training data: all, conditions, prompts, both"),
-    nhs_verified_only: bool = Query(True),
-    db: Session = Depends(get_db)
-):
-    """Get cleaned training data for AI model training"""
-    
-    training_data = {}
-    
-    if data_type in ["all", "both", "conditions"]:
-        # Get NHS-verified medical conditions
-        conditions_query = db.query(MedicalCondition)
-        if nhs_verified_only:
-            conditions_query = conditions_query.filter(MedicalCondition.verified_by_nhs == True)
+    try:
+        query = db.query(ProfessionalPrompt)
         
-        conditions = conditions_query.all()
-        training_data["conditions"] = [condition.to_dict() for condition in conditions]
-    
-    if data_type in ["all", "both", "prompts"]:
-        # Get NHS-approved professional prompts
-        prompts_query = db.query(ProfessionalPrompt)
+        if category:
+            query = query.filter(ProfessionalPrompt.prompt_category == category)
+        
+        if specialty:
+            query = query.filter(ProfessionalPrompt.specialty == specialty)
+        
         if nhs_verified_only:
-            prompts_query = prompts_query.filter(
+            query = query.filter(
                 ProfessionalPrompt.nhs_quality_check == True,
                 ProfessionalPrompt.professional_review_status == "approved"
             )
         
-        prompts = prompts_query.all()
-        training_data["prompts"] = [prompt.to_dict() for prompt in prompts]
-    
-    return {
-        "message": "Training data retrieved for AI model training",
-        "data_type": data_type,
-        "nhs_verified_only": nhs_verified_only,
-        "data": training_data,
-        "summary": {
-            "conditions_count": len(training_data.get("conditions", [])),
-            "prompts_count": len(training_data.get("prompts", []))
+        prompts = query.offset(skip).limit(limit).all()
+        
+        return {
+            "success": True,
+            "prompts": [prompt.to_dict() for prompt in prompts],
+            "total_count": db.query(ProfessionalPrompt).count(),
+            "nhs_verified_count": db.query(ProfessionalPrompt).filter(
+                ProfessionalPrompt.nhs_quality_check == True
+            ).count()
         }
-    }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
-@router.get("/admin/dashboard/")
-async def admin_dashboard(
-    current_admin = Depends(get_current_admin_user),
-    db: Session = Depends(get_db)
+# --- NHS Verification Endpoints ---
+
+@router.post("/verify/condition/{condition_id}", response_model=Dict[str, Any])
+async def nhs_verify_condition(
+    condition_id: int,
+    verification_data: Dict[str, Any] = Body(...),
+    db: Session = Depends(get_mysql_db)
 ):
-    """Admin dashboard for prompt and condition management"""
+    """NHS verification endpoint for medical conditions"""
     
-    # Get statistics
-    total_conditions = db.query(MedicalCondition).count()
-    verified_conditions = db.query(MedicalCondition).filter(MedicalCondition.verified_by_nhs == True).count()
-    pending_conditions = db.query(MedicalCondition).filter(MedicalCondition.nhs_review_status == "pending").count()
+    condition = db.query(MedicalCondition).filter(MedicalCondition.id == condition_id).first()
+    if not condition:
+        raise HTTPException(status_code=404, detail="Medical condition not found")
     
-    total_prompts = db.query(ProfessionalPrompt).count()
-    approved_prompts = db.query(ProfessionalPrompt).filtr(
-        ProfessionalPrompt.professional_review_status == "approved",
-        ProfessionalPrompt.nhs_quality_check == True
-    ).count()
-    
-    pending_prompts = db.query(ProfessionalPrompt).filtr(
-        ProfessionalPrompt.professional_review_status == "pending"
-    ).count()
-    
-    # Recent submissions
-    recent_conditions = db.query(MedicalCondition).order_by(MedicalCondition.last_updated.desc()).limit(5).all()
-    recent_prompts = db.query(ProfessionalPrompt).order_by(ProfessionalPrompt.created_at.desc()).limit(5).all()
-    
-    return {
-        "summary": {
-            "conditions": {
-                "total": total_conditions,
-                "verified": verified_conditions,
-                "pending_review": pending_conditions
-            },
-            "prompts": {
-                "total": total_prompts,
-                "approved": approved_prompts,
-                "pending_review": pending_prompts
-            }
-        },
-        "recent_submissions": {
-            "conditions": [condition.to_dict() for condition in recent_conditions],
-            "prompts": [prompt.to_dict() for prompt in recent_prompts]
+    try:
+        # Update NHS verification status
+        nhs_verified = verification_data.get("verify", False)
+        nhs_notes = verification_data.get("notes", "")
+        reviewer_name = verification_data.get("reviewer", "NHS Reviewer")
+        
+        condition.verified_by_nhs = nhs_verified
+        condition.nhs_review_status = "approved" if nhs_verified else "rejected"
+        condition.nhs_review_notes = nhs_notes
+        condition.nhs_review_date = datetime.utcnow()
+        condition.reviewed_by_nhs_professional = reviewer_name
+        
+        # Create quality analysis record
+        analysis = QualityAnalysis(
+            analysis_type="medical_condition_review",
+            resource_id=condition_id,
+            reviewed_by_nhs_professional=reviewer_name,
+            review_notes=nhs_notes,
+            approval_status="approved" if nhs_verified else "rejected",
+            analyzed_at=datetime.utcnow()
+        )
+        
+        db.add(analysis)
+        db.commit()
+        
+        return {
+            "success": True,
+            "message": "NHS verification completed",
+            "condition_id": condition_id,
+            "verified": nhs_verified,
+            "status": condition.nhs_review_status
         }
-    }
+        
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=f"NHS verification failed: {str(e)}")
+
+# --- Quality Analysis Endpoints ---
+
+@router.get("/quality-analysis/", response_model=Dict[str, Any])
+async def get_quality_analysis_reports(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=1000),
+    analysis_type: Optional[str] = Query(None),
+    db: Session = Depends(get_mysql_db)
+):
+    """Get quality analysis reports for NHS review oversight"""
+    
+    try:
+        query = db.query(QualityAnalysis)
+        
+        if analysis_type:
+            query = query.filter(QualityAnalysis.analysis_type == analysis_type)
+        
+        reports = query.order_by(QualityAnalysis.analyzed_at.desc()).offset(skip).limit(limit).all()
+        
+        return {
+            "success": True,
+            "quality_reports": [report.to_dict() for report in reports],
+            "pending_reviews": db.query(QualityAnalysis).filter(
+                QualityAnalysis.approval_status == "pending"
+            ).count()
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch quality analysis: {str(e)}")
+
+# --- Analytics Endpoints ---
+
+@router.get("/analytics/summary", response_model=Dict[str, Any])
+async def get_medical_data_analytics(db: Session = Depends(get_mysql_db)):
+    """Get analytics summary for medical data management"""
+    
+    try:
+        return {
+            "success": True,
+            "analytics": {
+                "total_conditions": db.query(MedicalCondition).count(),
+                "nhs_verified_conditions": db.query(MedicalCondition).filter(
+                    MedicalCondition.verified_by_nhs == True
+                ).count(),
+                "pending_verification": db.query(MedicalCondition).filter(
+                    MedicalCondition.nhs_verified == False
+                ).count(),
+                "total_prompts": db.query(ProfessionalPrompt).count(),
+                "nhs_verified_prompts": db.query(ProfessionalPrompt).filter(
+                    ProfessionalPrompt.nhs_quality_check == True
+                ).count(),
+                "quality_reports": db.query(QualityAnalysis).count(),
+                "data_coverage": {
+                    "conditions_with_management": db.query(MedicalCondition).filter(
+                        MedicalCondition.medical_management.isnot(None)
+                    ).count(),
+                    "conditions_with_prevention": db.query(MedicalCondition).filter(
+                        MedicalCondition.primary_prevention.isnot(None)
+                    ).count(),
+                    "prompts_with_clinical_context": db.query(ProfessionalPrompt).filter(
+                        ProfessionalPrompt.clinical_context.isnot(None)
+                    ).count()
+                }
+            }
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Analytics error: {str(e)}")

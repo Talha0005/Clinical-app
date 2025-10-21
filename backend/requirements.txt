@@ -20,9 +20,17 @@ PyJWT>=2.8.0
 
 # HTTP client for NHS Terminology Server
 aiohttp>=3.9.0
+
+# Database - MySQL Support
+PyMySQL>=1.1.0
+sqlalchemy>=2.0.0
+
+# Artificial Intelligence and LLM
 langfuse
 assemblyai
 litellm==1.50.4
+
+# Caching and Utilities  
 cachetools
 pillow
 numpy

@@ -4,7 +4,7 @@ Feature 2: LLM Wrapper Component - Service Layer
 """
 
 import uuid
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from datetime import datetime
 import logging
 
@@ -19,6 +19,7 @@ from .prompts_service import prompts_service
 from .llm_router import get_llm_router
 from .direct_llm_service import direct_llm_service
 from .patient_snapshot import get_any_patient_snapshot
+from .model_training_service import training_service
 
 
 class DigiClinicChatService:
@@ -61,6 +62,10 @@ class DigiClinicChatService:
 
         # NHS Terminology Server for clinical context
         self.nhs_terminology = None  # Will be initialized when needed
+        
+        # Model training service
+        self.training_service = training_service
+        self.current_trained_model = None
 
     async def start_conversation(
         self,
@@ -194,6 +199,26 @@ class DigiClinicChatService:
             conversation = self.active_conversations[conversation_id]
             return conversation.to_dict()
         return None
+
+    async def load_trained_model(self, model_name: str) -> bool:
+        """Load a trained model for enhanced responses"""
+        try:
+            success = await self.training_service.load_trained_model(model_name)
+            if success:
+                self.current_trained_model = model_name
+                self.logger.info(f"Loaded trained model: {model_name}")
+            return success
+        except Exception as e:
+            self.logger.error(f"Error loading trained model: {e}")
+            return False
+
+    def get_training_status(self) -> Dict[str, Any]:
+        """Get current training status"""
+        return self.training_service.get_training_status()
+
+    def get_available_trained_models(self) -> List[Dict[str, Any]]:
+        """Get list of available trained models"""
+        return self.training_service.get_available_models()
 
     def get_llm_info(self) -> Dict[str, Any]:
         """Get information about current LLM"""

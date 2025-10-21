@@ -1,0 +1,28 @@
+{
+  "overall_validation": {
+    "is_valid": false,
+    "validation_score": 65.78947368421053,
+    "total_items": 38,
+    "valid_items": 25,
+    "invalid_items": 13
+  },
+  "synthea_validation": {
+    "is_valid": false,
+    "validation_score": 65.71428571428571,
+    "validated_codes": 23,
+    "invalid_items": 12
+  },
+  "prompts_validation": {
+    "is_valid": false,
+    "validation_score": 66.66666666666666,
+    "validated_codes": 2,
+    "invalid_items": 1
+  },
+  "recommendations": [
+    "Synthea data validation score is low. Consider updating patient records with NHS-standard terminology.",
+    "Doctor prompts validation score is low. Consider adding more NHS-compliant language and guidelines.",
+    "Found 12 invalid medical conditions/medications. Review and update with NHS terminology.",
+    "Found 1 prompts with low NHS compliance. Update with NHS guidelines."
+  ],
+  "validation_timestamp": 399477.562
+}
